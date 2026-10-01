@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAAC - Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { align-items: flex-start; padding-top: 48px; }
+    .card { max-width: 480px; text-align: center; }
+    .check { width: 56px; height: 56px; background: var(--verde); color: #fff; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 14px; }
+    .dados { text-align: left; background: var(--cinza-fundo); border-radius: 8px; padding: 14px 16px; margin-top: 18px; font-size: 13.5px; }
+    .dados p { margin: 5px 0; }
+    .dados b { color: var(--azul-escuro); }
+    .sair { margin-top: 20px; background: var(--vermelho); }
+    .sair:hover { background: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="check">✓</div>
+    <h2 class="titulo">Login realizado com sucesso!</h2>
+    <p id="boas-vindas" style="color:#6b7280; font-size:14px;">Carregando seus dados...</p>
+    <div class="dados" id="dados-usuario" style="display:none;">
+      <p><b>Nome:</b> <span id="info-nome"></span></p>
+      <p><b>Email:</b> <span id="info-email"></span></p>
+      <p><b>Área:</b> <span id="info-area"></span></p>
+    </div>
+    <button class="btn-principal sair" id="btn-sair">Sair</button>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

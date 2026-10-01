@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAAC - Login</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="icone">🔐</div>
+      <h1>SAAC</h1>
+      <p>Sistema de Achados de Auditoria e Conformidade</p>
+    </div>
+    <h2 class="titulo">Entrar na sua conta</h2>
+    <form id="form-login" novalidate>
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" placeholder="seuemail@orgao.gov.br" autocomplete="username" />
+      <div class="campo-erro" id="erro-email"></div>
+      <label for="senha">Senha</label>
+      <div class="senha-wrapper">
+        <input type="password" id="senha" name="senha" placeholder="Sua senha" autocomplete="current-password" />
+        <button type="button" class="toggle-senha" id="toggle-senha">Mostrar</button>
+      </div>
+      <div class="campo-erro" id="erro-senha"></div>
+      <button type="submit" class="btn-principal" id="btn-login">Entrar</button>
+      <div class="alerta" id="alerta"></div>
+    </form>
+    <p class="link-secundario">Ainda não tem conta? <a href="cadastro.html">Cadastre-se</a></p>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>
