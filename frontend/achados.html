@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAAC - Achados</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <div class="icone">🔐</div>
+      <div><h1>SAAC</h1><p>Sistema de Achados de Auditoria e Conformidade</p></div>
+    </div>
+    <nav class="menu">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="orgaos.html">Órgãos</a>
+      <a href="achados.html" class="ativo">Achados</a>
+      <a href="#" onclick="logout(); return false;">Sair</a>
+    </nav>
+  </header>
+
+  <main class="conteudo">
+    <div class="cabecalho-pagina">
+      <div>
+        <h2>Achados</h2>
+        <p>Achados de auditoria, cada um vinculado a um órgão.</p>
+      </div>
+      <button class="btn btn-principal" id="btn-novo-achado">+ Novo Achado</button>
+    </div>
+
+    <div class="filtros">
+      <div class="campo"><label for="filtro-orgao">Órgão</label><select id="filtro-orgao"><option value="">Todos</option></select></div>
+      <div class="campo">
+        <label for="filtro-severidade">Severidade</label>
+        <select id="filtro-severidade">
+          <option value="">Todas</option><option>Crítico</option><option>Alto</option><option>Médio</option><option>Baixo</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="filtro-status">Status</label>
+        <select id="filtro-status">
+          <option value="">Todos</option><option>Em aberto</option><option>Em análise</option><option>Implementado</option><option>Rejeitado</option>
+        </select>
+      </div>
+      <button class="btn btn-secundario" id="btn-filtrar">Filtrar</button>
+      <button class="btn btn-secundario" id="btn-limpar-filtro">Limpar</button>
+    </div>
+
+    <div class="tabela-wrapper">
+      <table>
+        <thead><tr><th>Título</th><th>Órgão</th><th>Severidade</th><th>Status</th><th>Criado por</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-achados"></tbody>
+      </table>
+      <div class="vazio" id="vazio-achados" style="display:none;">Nenhum achado encontrado.</div>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay-form">
+    <div class="modal">
+      <h3 id="form-titulo">Novo Achado</h3>
+      <form id="form-achado">
+        <input type="hidden" id="achado-id" />
+        <label class="campo-label" for="achado-titulo">Título</label>
+        <input type="text" id="achado-titulo" placeholder="Ex: Licitação sem documentação adequada" />
+        <div class="campo-erro" id="erro-titulo"></div>
+        <label class="campo-label" for="achado-descricao">Descrição</label>
+        <textarea id="achado-descricao" placeholder="Descreva o achado em detalhes..."></textarea>
+        <div class="campo-erro" id="erro-descricao"></div>
+        <label class="campo-label" for="achado-orgao">Órgão</label>
+        <select id="achado-orgao"><option value="">Selecione...</option></select>
+        <div class="campo-erro" id="erro-orgao"></div>
+        <label class="campo-label" for="achado-severidade">Severidade</label>
+        <select id="achado-severidade">
+          <option value="">Selecione...</option><option>Crítico</option><option>Alto</option><option>Médio</option><option>Baixo</option>
+        </select>
+        <div class="campo-erro" id="erro-severidade"></div>
+        <label class="campo-label" for="achado-status">Status</label>
+        <select id="achado-status">
+          <option>Em aberto</option><option>Em análise</option><option>Implementado</option><option>Rejeitado</option>
+        </select>
+        <div class="alerta" id="alerta-form"></div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-secundario" id="btn-cancelar-form">Cancelar</button>
+          <button type="submit" class="btn btn-principal" id="btn-salvar-achado">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay-excluir">
+    <div class="modal modal-confirmacao">
+      <h3>Excluir achado</h3>
+      <p>Tem certeza que deseja excluir <b id="titulo-achado-excluir"></b>?</p>
+      <p class="aviso">Esta ação não pode ser desfeita.</p>
+      <div class="alerta" id="alerta-excluir"></div>
+      <div class="modal-acoes">
+        <button type="button" class="btn btn-secundario" id="btn-cancelar-excluir">Cancelar</button>
+        <button type="button" class="btn btn-perigo" id="btn-confirmar-excluir">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/achados.js"></script>
+</body>
+</html>

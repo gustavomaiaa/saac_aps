@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAAC - Órgãos</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <div class="icone">🔐</div>
+      <div><h1>SAAC</h1><p>Sistema de Achados de Auditoria e Conformidade</p></div>
+    </div>
+    <nav class="menu">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="orgaos.html" class="ativo">Órgãos</a>
+      <a href="achados.html">Achados</a>
+      <a href="#" onclick="logout(); return false;">Sair</a>
+    </nav>
+  </header>
+
+  <main class="conteudo">
+    <div class="cabecalho-pagina">
+      <div>
+        <h2>Órgãos</h2>
+        <p>Cadastro dos órgãos auditados. Cada órgão pode ter vários achados vinculados.</p>
+      </div>
+      <button class="btn btn-principal" id="btn-novo-orgao">+ Novo Órgão</button>
+    </div>
+
+    <div class="tabela-wrapper">
+      <table>
+        <thead><tr><th>Nome</th><th>Tipo</th><th>Achados</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
+        <tbody id="tbody-orgaos"></tbody>
+      </table>
+      <div class="vazio" id="vazio-orgaos" style="display:none;">Nenhum órgão cadastrado ainda.</div>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay-form">
+    <div class="modal">
+      <h3 id="form-titulo">Novo Órgão</h3>
+      <form id="form-orgao">
+        <input type="hidden" id="orgao-id" />
+        <label class="campo-label" for="orgao-nome">Nome do órgão</label>
+        <input type="text" id="orgao-nome" placeholder="Ex: Secretaria de Educação" />
+        <div class="campo-erro" id="erro-nome"></div>
+        <label class="campo-label" for="orgao-tipo">Tipo</label>
+        <select id="orgao-tipo">
+          <option value="">Selecione...</option>
+          <option>Prefeitura</option><option>Secretaria</option><option>Autarquia</option>
+          <option>Câmara Municipal</option><option>Fundação</option>
+        </select>
+        <div class="campo-erro" id="erro-tipo"></div>
+        <div class="alerta" id="alerta-form"></div>
+        <div class="modal-acoes">
+          <button type="button" class="btn btn-secundario" id="btn-cancelar-form">Cancelar</button>
+          <button type="submit" class="btn btn-principal" id="btn-salvar-orgao">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay-excluir">
+    <div class="modal modal-confirmacao">
+      <h3>Excluir órgão</h3>
+      <p>Tem certeza que deseja excluir <b id="nome-orgao-excluir"></b>?</p>
+      <p class="aviso">Órgãos com achados vinculados não podem ser excluídos.</p>
+      <div class="alerta" id="alerta-excluir"></div>
+      <div class="modal-acoes">
+        <button type="button" class="btn btn-secundario" id="btn-cancelar-excluir">Cancelar</button>
+        <button type="button" class="btn btn-perigo" id="btn-confirmar-excluir">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/orgaos.js"></script>
+</body>
+</html>
