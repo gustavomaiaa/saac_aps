@@ -141,7 +141,7 @@ a.btn-principal:hover { background: var(--azul-escuro); }
 .card-total p { margin: 2px 0 0; font-size: 12.5px; color: #6b7280; }
 .card-total.sev-critico { border-left-color: var(--vermelho); }
 .barra-linha { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 13px; }
-.barra-rotulo { width: 140px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barra-rotulo { width: 170px; flex-shrink: 0; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
 .barra-trilho { flex: 1; background: #eef0f3; border-radius: 6px; height: 16px; overflow: hidden; }
 .barra-preenchimento { height: 100%; border-radius: 6px; min-width: 3px; transition: width 0.4s; }
 .barra-valor { width: 32px; text-align: right; font-weight: 600; }
@@ -153,7 +153,7 @@ a.btn-principal:hover { background: var(--azul-escuro); }
   main.conteudo { padding: 20px 12px 48px; }
   .tabela-wrapper { overflow-x: auto; }
   table { min-width: 640px; }
-  .barra-rotulo { width: 100px; }
+  .barra-rotulo { width: 120px; }
 }
 
 .filtros .campo-busca { flex: 1; min-width: 200px; }
@@ -183,3 +183,11 @@ a.btn-principal:hover { background: var(--azul-escuro); }
 .lista-historico li.vazio-hist { list-style: none; margin-left: -18px; color: #9ca3af; }
 
 .sem-permissao { font-size: 12px; color: #9ca3af; font-style: italic; }
+
+/* --- Abas e auditoria --- */
+.abas { display: flex; gap: 4px; border-bottom: 1px solid #e5e7eb; margin: -6px 0 6px; }
+.aba { background: none; border: none; padding: 8px 12px; font-size: 13px; font-weight: 600; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; }
+.aba.ativa { color: var(--azul-claro); border-bottom-color: var(--azul-claro); }
+.item-auditoria { border-left: 3px solid var(--azul-claro); background: var(--cinza-fundo); border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
+.item-auditoria ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: #4b5563; }
+.data-auditoria { float: right; font-size: 11.5px; color: #9ca3af; }
