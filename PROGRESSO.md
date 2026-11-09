@@ -1,25 +1,20 @@
-# PROGRESSO — Sprint V (SAAC)
+# PROGRESSO — SAAC
 
-Checklist para retomar o trabalho.
+## Sprint V (concluída)
+- [x] Etapas 1–9: dashboard, filtros/paginação, exclusão lógica, IA local, Memento, CSV/relatório, permissões, testes/seed, polimento
+- [x] Correção da análise de padrões (fatos calculados em JS + validação da resposta)
 
-- [x] Etapa 1 — Dashboard com dados reais (views, GET /api/dashboard, dashboard.html)
-- [x] Etapa 2 — Filtros, busca e paginação
-- [x] Etapa 3 — Exclusão lógica de achados
-- [x] Etapa 4 — IA local com Ollama (recomendação, padrões, status, métricas)
-- [x] Etapa 5 — Histórico e desfazer (Memento)
-- [x] Etapa 6 — Exportação CSV e relatório imprimível
-- [x] Etapa 7 — Permissões (admin/auditor) e sessão (401 → login)
-- [x] Etapa 8 — Testes (55 passando), seed e README
-- [x] Etapa 9 — Polimento e verificação do zero
-- [ ] Opcional — AuditoriaFacade (não feita)
+## Finalização para entrega acadêmica
+- [x] 1. CI (`.github/workflows/ci.yml`, Node 22, `npm ci` + `npm test`) e selo no README
+- [x] 2. Docker (`backend/Dockerfile`, `docker-compose.yml`); testado: build, up, seed, health, CORS e IA via host.docker.internal
+- [x] 3. Segurança: senhas já usavam bcrypt (confirmado, com teste); helmet; limite de login 5/15 min por IP (429); CORS por `CORS_ORIGIN`
+- [x] 4. Auditoria: tabela `auditoria`, `GET /api/achados/:id/auditoria`, aba "Histórico de auditoria", testes
+- [x] 5. Barras do dashboard: `title` com nome completo e quebra em 2 linhas
+- [x] 6. README reescrito (índice, Mermaid, padrões, LGPD, rastreabilidade, Docker, limitações)
+- [x] 7. `docs/ROTEIRO_DEMO.md`
+- [x] 8. PROGRESSO atualizado
 
-## Observações
-- Ollama está instalado nesta máquina com `llama3.2:3b`; os testes automatizados usam um servidor falso (`backend/tests/fake-ollama.js`).
-- Tempo de resposta da IA nesta máquina: recomendação ~12–15s (1ª chamada, carga do modelo), análise de padrões ~4–6s.
-- Verificação do zero (saac.db apagado → npm install → npm start → npm run seed → fluxo completo pela API com o Ollama real): OK.
-  O banco antigo de desenvolvimento foi movido para a pasta temporária da sessão (não está no repositório).
-- Mudança de comportamento: token inválido/expirado agora responde 401 (antes 403) para o frontend limpar a sessão; 403 ficou para permissão.
-
-## Pendente de teste manual (navegador)
-- Percorrer visualmente as telas: botão "Gerar com IA" (carregando, Aceitar/Descartar), card "Análise de padrões", métricas, desfazer no modal de edição, Exportar CSV (download), relatorio.html (Imprimir / salvar PDF) e layout em tela estreita.
-- Comportamento com o Ollama desligado no navegador (a API já é coberta por testes: 503 com a mensagem esperada).
+## Pendente / observações
+- Verificação visual no navegador (aba de auditoria, mensagem 429, barras com 2 linhas) não foi automatizada.
+- O workflow de CI não pôde ser executado localmente (roda no GitHub após o push); os testes passam no Node 24 local.
+- Tempo da IA (llama3.2:3b): recomendação ~12–15 s na 1ª chamada; padrões ~6 s.
