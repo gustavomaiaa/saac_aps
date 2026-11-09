@@ -36,7 +36,7 @@ router.get('/', (req, res) => {
   try {
     const orgaos = db.prepare(
       `SELECT o.*, COUNT(a.id) AS total_achados
-       FROM orgaos o LEFT JOIN achados a ON a.orgao_id = o.id
+       FROM orgaos o LEFT JOIN achados a ON a.orgao_id = o.id AND a.excluido_em IS NULL
        GROUP BY o.id ORDER BY o.nome ASC`
     ).all();
     return res.status(200).json({ sucesso: true, orgaos });
@@ -84,11 +84,20 @@ router.delete('/:id', (req, res) => {
   try {
     const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Órgão não encontrado.' });
-    const vinculados = db.prepare('SELECT COUNT(*) AS total FROM achados WHERE orgao_id = ?').get(req.params.id);
+    const vinculados = db.prepare(
+      'SELECT COUNT(*) AS total, SUM(CASE WHEN excluido_em IS NULL THEN 1 ELSE 0 END) AS ativos FROM achados WHERE orgao_id = ?'
+    ).get(req.params.id);
+    if (vinculados.ativos > 0) {
+      return res.status(409).json({
+        sucesso: false,
+        erro: `Não é possível excluir: existem ${vinculados.ativos} achado(s) vinculado(s) a este órgão.`,
+      });
+    }
+    // Achados excluídos logicamente continuam no banco (histórico) e ainda referenciam o órgão
     if (vinculados.total > 0) {
       return res.status(409).json({
         sucesso: false,
-        erro: `Não é possível excluir: existem ${vinculados.total} achado(s) vinculado(s) a este órgão.`,
+        erro: 'Não é possível excluir: o órgão possui achados excluídos preservados para histórico.',
       });
     }
     db.prepare('DELETE FROM orgaos WHERE id = ?').run(req.params.id);

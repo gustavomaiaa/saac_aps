@@ -60,6 +60,15 @@ db.exec(`
   );
 `);
 
+// Migracao idempotente: adiciona a coluna somente se ela ainda nao existir
+function adicionarColunaSeNaoExistir(tabela, coluna, definicao) {
+  const existe = db.prepare(`PRAGMA table_info(${tabela})`).all().some((c) => c.name === coluna);
+  if (!existe) db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${definicao}`);
+}
+
+// --- Sprint V: exclusao logica de achados ---
+adicionarColunaSeNaoExistir('achados', 'excluido_em', 'TEXT');
+
 // --- Sprint V: views usadas pelo dashboard e pelas listagens ---
 // Recriadas a cada inicializacao (nao guardam dados, entao e seguro e idempotente).
 db.exec('DROP VIEW IF EXISTS vw_achados_detalhados;');
@@ -68,7 +77,8 @@ db.exec(`
   SELECT a.*, o.nome AS orgao_nome, o.tipo AS orgao_tipo, u.nome AS criado_por_nome
   FROM achados a
   JOIN orgaos o ON o.id = a.orgao_id
-  JOIN usuarios u ON u.id = a.criado_por_id;
+  JOIN usuarios u ON u.id = a.criado_por_id
+  WHERE a.excluido_em IS NULL;
 `);
 
 db.exec('DROP VIEW IF EXISTS vw_resumo_orgaos;');
@@ -81,7 +91,7 @@ db.exec(`
          COALESCE(SUM(CASE WHEN a.severidade = 'Médio' THEN 1 ELSE 0 END), 0) AS total_medio,
          COALESCE(SUM(CASE WHEN a.severidade = 'Baixo' THEN 1 ELSE 0 END), 0) AS total_baixo
   FROM orgaos o
-  LEFT JOIN achados a ON a.orgao_id = o.id
+  LEFT JOIN achados a ON a.orgao_id = o.id AND a.excluido_em IS NULL
   GROUP BY o.id;
 `);
 

@@ -3,8 +3,8 @@
 Checklist para retomar o trabalho. Atualizado a cada etapa.
 
 - [x] Etapa 1 — Dashboard com dados reais (views, GET /api/dashboard, dashboard.html)
-- [ ] Etapa 2 — Filtros, busca e paginação
-- [ ] Etapa 3 — Exclusão lógica de achados
+- [x] Etapa 2 — Filtros, busca e paginação
+- [x] Etapa 3 — Exclusão lógica de achados
 - [ ] Etapa 4 — IA local com Ollama
 - [ ] Etapa 5 — Histórico e desfazer (Memento)
 - [ ] Etapa 6 — Exportação CSV e relatório

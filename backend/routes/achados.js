@@ -84,11 +84,7 @@ router.get('/', (req, res) => {
 
 router.get('/:id', (req, res) => {
   try {
-    const achado = db.prepare(
-      `SELECT a.*, o.nome AS orgao_nome, u.nome AS criado_por_nome
-       FROM achados a JOIN orgaos o ON o.id = a.orgao_id JOIN usuarios u ON u.id = a.criado_por_id
-       WHERE a.id = ?`
-    ).get(req.params.id);
+    const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(req.params.id);
     if (!achado) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
     return res.status(200).json({ sucesso: true, achado });
   } catch (erro) {
@@ -112,7 +108,7 @@ router.put('/:id', (req, res) => {
     return res.status(400).json({ sucesso: false, erro: `Status inválido. Opções: ${STATUS_VALIDOS.join(', ')}.` });
   }
   try {
-    const existente = db.prepare('SELECT id FROM achados WHERE id = ?').get(req.params.id);
+    const existente = db.prepare('SELECT id FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
 
     const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(orgao_id);
@@ -138,9 +134,10 @@ router.put('/:id', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   try {
-    const existente = db.prepare('SELECT id FROM achados WHERE id = ?').get(req.params.id);
+    const existente = db.prepare('SELECT id FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
-    db.prepare('DELETE FROM achados WHERE id = ?').run(req.params.id);
+    // Exclusão lógica: o registro é preservado, apenas marcado como excluído
+    db.prepare("UPDATE achados SET excluido_em = datetime('now') WHERE id = ?").run(req.params.id);
     return res.status(200).json({ sucesso: true, mensagem: 'Achado excluído com sucesso!' });
   } catch (erro) {
     console.error('Erro ao excluir achado:', erro);
