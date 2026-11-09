@@ -163,7 +163,7 @@ escolhe **Aceitar** ou **Descartar**, e o uso é registrado em `ia_uso` (tipo `s
 **Achados semelhantes:** usa o modelo de embeddings **`nomic-embed-text`** (`ollama pull nomic-embed-text`). O vetor de cada achado fica na
 tabela `achados_embedding` (JSON, modelo e data), gerado em segundo plano ao criar/editar, ou em lote com `npm run embeddings`
 (o `npm run seed` também tenta gerar). A comparação é por **cosseno calculado em JavaScript**; a API devolve os 3 mais parecidos com
-similaridade ≥ limiar (`SEMELHANTES_LIMIAR`, padrão 0,75) e marca **possível duplicidade** quando o melhor passa de
+similaridade ≥ limiar (`SEMELHANTES_LIMIAR`, padrão 0,80) e marca **possível duplicidade** quando o melhor passa de
 `SEMELHANTES_LIMIAR_DUPLICIDADE` (padrão 0,90). Se o Ollama ou o modelo de embeddings estiver ausente, o formulário continua normal, apenas sem a
 sugestão (a API responde 503 com "Execute: ollama pull nomic-embed-text").
 
@@ -253,7 +253,7 @@ docker compose down                       # use "down -v" para apagar também o 
 | `OLLAMA_MODEL` | `llama3.2:3b` | Modelo |
 | `OLLAMA_TIMEOUT_MS` | `120000` | Tempo máximo de espera pela IA |
 | `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Modelo de embeddings |
-| `SEMELHANTES_LIMIAR` | `0.75` | Similaridade mínima para listar um achado parecido |
+| `SEMELHANTES_LIMIAR` | `0.80` | Similaridade mínima para listar um achado parecido |
 | `SEMELHANTES_LIMIAR_DUPLICIDADE` | `0.90` | Similaridade a partir da qual aparece o alerta de possível duplicidade |
 | `SAAC_DB_PATH` | `backend/saac.db` | Arquivo do banco (usado pelos testes e pelo Docker) |
 
@@ -341,7 +341,7 @@ saac_aps/
 ## 13. Limitações conhecidas
 
 - A IA (modelo 3B) **pode errar**; sempre revisar. A validação checa os números citados, não o sentido do texto. O modelo tende a repetir os fatos quase literalmente.
-- A similaridade por embeddings tem "ruído de fundo": com o limiar padrão (0,75) podem aparecer achados só vagamente relacionados; ajuste `SEMELHANTES_LIMIAR`. A busca compara com todos os vetores em JavaScript (adequado para centenas/milhares de achados, não para milhões).
+- A similaridade por embeddings tem "ruído de fundo": com o limiar padrão (0,80) ainda podem aparecer achados só vagamente relacionados; ajuste `SEMELHANTES_LIMIAR`. A busca compara com todos os vetores em JavaScript (adequado para centenas/milhares de achados, não para milhões).
 - A severidade sugerida é um apoio: o modelo 3B tende a classificar de forma conservadora e pode divergir do julgamento do auditor.
 - O limite de tentativas de login fica **em memória**: reinicia com o servidor e não é compartilhado entre instâncias.
 - O token JWT fica no `localStorage` do navegador e não há *refresh token*; a sessão expira em 2 h.

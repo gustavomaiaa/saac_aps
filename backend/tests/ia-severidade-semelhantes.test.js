@@ -145,7 +145,7 @@ test('semelhantes: top 3 ordenados com percentual; abaixo do limiar não aparece
   const q = new URLSearchParams({ titulo: 'Licitação sem parecer', descricao: 'Licitação irregular', orgao_id: String(orgaoA.id) });
   const r = await h.req('GET', `/ia/semelhantes?${q}`, { token });
   assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.corpo.limiar, 0.75);
+  assert.strictEqual(r.corpo.limiar, 0.8);
   const ids = r.corpo.semelhantes.map((s) => s.id);
   assert.ok(ids.includes(A.id) && ids.includes(E.id));
   assert.ok(!ids.includes(M.id), 'tema diferente fica abaixo do limiar');

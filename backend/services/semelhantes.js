@@ -3,10 +3,10 @@
 const db = require('../db');
 const ia = require('./ia');
 
-// Limiar mínimo para listar um achado como "parecido" (padrão 0,75) e limiar de "possível duplicidade" (padrão 0,90)
+// Limiar mínimo para listar um achado como "parecido" (padrão 0,80) e limiar de "possível duplicidade" (padrão 0,90)
 function limiarSemelhante() {
   const n = Number(String(process.env.SEMELHANTES_LIMIAR || '').replace(',', '.'));
-  return n > 0 && n <= 1 ? n : 0.75;
+  return n > 0 && n <= 1 ? n : 0.80;
 }
 function limiarDuplicidade() {
   const n = Number(String(process.env.SEMELHANTES_LIMIAR_DUPLICIDADE || '').replace(',', '.'));
