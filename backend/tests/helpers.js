@@ -25,7 +25,8 @@ async function req(metodo, caminho, { token, body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
   const resposta = await fetch(`${base}${caminho}`, { method: metodo, headers, body: body ? JSON.stringify(body) : undefined });
-  const texto = await resposta.text();
+  // ignoreBOM: preserva o BOM do CSV para que os testes possam verificá-lo
+  const texto = new TextDecoder('utf-8', { ignoreBOM: true }).decode(await resposta.arrayBuffer());
   let corpo = null;
   try { corpo = JSON.parse(texto); } catch (e) { corpo = null; }
   return { status: resposta.status, corpo, texto, headers: resposta.headers };

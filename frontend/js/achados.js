@@ -234,6 +234,31 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
   }
 });
 
+// --- Exportação CSV (respeita os filtros atuais) ---
+document.getElementById('btn-exportar').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-exportar');
+  btn.disabled = true;
+  btn.textContent = 'Exportando...';
+  try {
+    const resposta = await fetch(`${API_URL}/achados/exportar.csv?${parametrosFiltro().toString()}`, { headers: headersAutenticados() });
+    if (resposta.status === 401) return logout();
+    if (!resposta.ok) throw new Error('Falha ao exportar');
+    const blob = await resposta.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'achados.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(link.href);
+  } catch (erro) {
+    alert('Não foi possível exportar o CSV. Verifique a conexão com o servidor.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Exportar CSV';
+  }
+});
+
 // --- Histórico de edições e desfazer (Memento) ---
 async function carregarHistorico(id) {
   const lista = document.getElementById('lista-historico');

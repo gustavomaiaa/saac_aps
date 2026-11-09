@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAAC - Relatório</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .rel-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .rel-resumo div { background: var(--cinza-fundo); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+    .rel-resumo b { display: block; color: var(--azul-escuro); margin-bottom: 4px; }
+    .rel-tabela td, .rel-tabela th { font-size: 12.5px; vertical-align: top; }
+    .rel-cabecalho-impressao { display: none; }
+
+    @media print {
+      @page { size: A4 landscape; margin: 14mm; }
+      body { background: #fff; }
+      header.topo, .nao-imprimir { display: none !important; }
+      .rel-cabecalho-impressao { display: block; margin-bottom: 12px; }
+      main.conteudo { max-width: none; padding: 0; }
+      .painel, .tabela-wrapper { box-shadow: none; border: 1px solid #d1d5db; break-inside: avoid; }
+      .tabela-wrapper { overflow: visible; }
+      table { min-width: 0; }
+      thead { display: table-header-group; background: #fff; color: #000; border-bottom: 2px solid #000; }
+      tr { break-inside: avoid; }
+      .badge { color: #000; background: #fff !important; border: 1px solid #6b7280; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <div class="icone">🔐</div>
+      <div><h1>SAAC</h1><p>Sistema de Achados de Auditoria e Conformidade</p></div>
+    </div>
+    <nav class="menu" id="menu"></nav>
+  </header>
+
+  <main class="conteudo">
+    <div class="rel-cabecalho-impressao">
+      <h1 style="margin:0;color:var(--azul-escuro);">SAAC — Relatório de Achados de Auditoria</h1>
+    </div>
+    <div class="cabecalho-pagina">
+      <div>
+        <h2>Relatório</h2>
+        <p id="rel-data">Gerado em ...</p>
+      </div>
+      <button class="btn btn-principal nao-imprimir" id="btn-imprimir">Imprimir / salvar PDF</button>
+    </div>
+
+    <div class="alerta" id="alerta-relatorio"></div>
+    <div class="vazio" id="carregando-relatorio">Carregando relatório...</div>
+
+    <div id="relatorio" style="display:none;">
+      <section class="painel">
+        <h3>Resumo</h3>
+        <div class="rel-resumo" id="rel-resumo"></div>
+      </section>
+
+      <section class="painel">
+        <h3>Análise de padrões (IA local)</h3>
+        <div id="rel-padroes"></div>
+      </section>
+
+      <section class="painel" style="padding:0;">
+        <h3 style="padding:18px 20px 0;">Achados</h3>
+        <div class="tabela-wrapper" style="box-shadow:none;">
+          <table class="rel-tabela">
+            <thead><tr><th>#</th><th>Título</th><th>Órgão</th><th>Severidade</th><th>Status</th><th>Recomendação</th><th>Criado por</th><th>Criado em</th></tr></thead>
+            <tbody id="rel-achados"></tbody>
+          </table>
+          <div class="vazio" id="rel-vazio" style="display:none;">Nenhum achado cadastrado.</div>
+        </div>
+      </section>
+    </div>
+    <p class="rodape-ia">Trechos gerados por IA local (Ollama) podem conter erros e devem ser revisados antes de uso oficial.</p>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/relatorio.js"></script>
+</body>
+</html>

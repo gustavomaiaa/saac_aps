@@ -100,6 +100,37 @@ router.get('/', (req, res) => {
   }
 });
 
+// Escapa uma célula de CSV (separador ';'). Também neutraliza "injeção de fórmula" do Excel (=, +, -, @).
+function celulaCsv(valor) {
+  let texto = valor === null || valor === undefined ? '' : String(valor);
+  if (/^[=+\-@\t\r]/.test(texto)) texto = `'${texto}`;
+  return /[;"\r\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+}
+
+// Exportação CSV (UTF-8 com BOM, separador ';'), respeitando os mesmos filtros da listagem
+// IMPORTANTE: declarada antes de '/:id' para não ser confundida com um id.
+router.get('/exportar.csv', (req, res) => {
+  try {
+    const { whereSql, parametros } = montarFiltros(req.query);
+    const achados = db.prepare(
+      `SELECT * FROM vw_achados_detalhados ${whereSql} ORDER BY criado_em DESC, id DESC`
+    ).all(...parametros);
+
+    const cabecalho = ['ID', 'Título', 'Descrição', 'Severidade', 'Status', 'Recomendação', 'Órgão', 'Criado por', 'Criado em'];
+    const linhas = achados.map((a) => [
+      a.id, a.titulo, a.descricao, a.severidade, a.status, a.recomendacao, a.orgao_nome, a.criado_por_nome, a.criado_em,
+    ].map(celulaCsv).join(';'));
+    const csv = '﻿' + [cabecalho.join(';'), ...linhas].join('\r\n') + '\r\n';
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="achados.csv"');
+    return res.status(200).send(csv);
+  } catch (erro) {
+    console.error('Erro ao exportar CSV:', erro);
+    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao exportar o CSV.' });
+  }
+});
+
 router.get('/:id', (req, res) => {
   try {
     const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(req.params.id);
