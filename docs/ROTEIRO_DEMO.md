@@ -45,6 +45,14 @@
 - **Clicar:** **Aceitar**, ajustar uma palavra no texto e **Salvar**.
 - **Falar:** "A IA só recebe os campos do achado em edição, e o auditor decide: aceitar, editar ou descartar."
 
+### Bônus (1 min, dentro do passo "Novo achado") — Severidade sugerida e achados parecidos
+- **Preparação:** `ollama pull nomic-embed-text` e `npm run embeddings` (o seed já tenta gerar) para os achados terem vetores.
+- **Clicar:** no formulário de novo achado, digitar o título "Licitação conduzida sem parecer jurídico" e a descrição "Processo licitatório realizado sem parecer jurídico e sem ata de abertura das propostas".
+- **Mostrar:** após ~1 s aparece **Achados parecidos** com o percentual (ex.: ~93% "Licitação sem documentação adequada") e o alerta **Possível duplicidade**; clicar no link abre o achado existente em outra aba.
+- **Clicar:** **Sugerir severidade com IA** → mostrar a severidade preenchida, a justificativa curta, modelo/tempo e o aviso "Sugestão gerada por IA, revise antes de salvar"; clicar **Aceitar** (ou **Descartar** para voltar ao valor anterior).
+- **Falar:** "A severidade vem em JSON e só é aceita se for Crítico, Alto, Médio ou Baixo; a justificativa não pode citar leis nem números que não estejam no texto. Os achados parecidos usam embeddings locais e cosseno calculado no servidor — nada sai da máquina. Se o Ollama ou o modelo de embeddings estiver ausente, o formulário continua funcionando sem essas sugestões."
+- **Métricas:** no dashboard, mostrar em **Métricas da IA** a contagem por tipo (recomendação / severidade / padrões).
+
 ### 3:45 — Editar, desfazer e auditoria (45 s)
 - **Clicar:** **Editar** no achado recém-criado → mudar severidade para **Crítico** e status **Em análise** → Salvar.
 - **Clicar:** reabrir **Editar** → **Desfazer última edição** (o formulário volta ao estado anterior).

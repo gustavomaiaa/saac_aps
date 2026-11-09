@@ -48,6 +48,8 @@ Stack: Node.js + Express, SQLite nativo (`node:sqlite`), JWT, HTML/CSS/JavaScrip
 | RF13 | Relatório imprimível (resumo, análise de padrões e tabela de achados) |
 | RF14 | Permissões: só o criador do achado ou um administrador edita, exclui e desfaz |
 | RF15 | Proteções: limite de tentativas de login, cabeçalhos de segurança e CORS restrito |
+| RF16 | Severidade sugerida por IA local (valor validado, justificativa curta), confirmada pelo usuário |
+| RF17 | Achados semelhantes por embeddings, com alerta de possível duplicidade ao cadastrar |
 
 ## 3. Arquitetura
 
@@ -138,6 +140,8 @@ A IA roda no **Ollama, na própria máquina** (`OLLAMA_URL`, padrão `http://loc
 | Recurso | A IA recebe | A IA **não** recebe |
 |---------|-------------|---------------------|
 | Recomendação | Título, descrição, severidade e nome/tipo do órgão do achado em edição | Usuários, e-mails, senhas, outros achados, histórico, auditoria |
+| Severidade sugerida | Apenas título e descrição digitados no formulário | Órgão, usuários, outros achados |
+| Achados semelhantes | Título e descrição (texto do achado novo e de cada achado salvo, para gerar o vetor) | Usuários, e-mails, senhas, histórico, auditoria |
 | Análise de padrões | Apenas **fatos agregados** (contagens, rankings e percentuais) calculados pelo sistema | Títulos, descrições ou qualquer texto individual dos achados |
 
 Medidas alinhadas a princípios da **LGPD**:
@@ -150,6 +154,18 @@ Medidas alinhadas a princípios da **LGPD**:
 - **Atenção do usuário:** se o texto de um achado contiver dados pessoais, ele será processado pelo modelo local (sem sair da máquina), mas deve ser evitado quando desnecessário.
 
 > Este projeto é acadêmico e este texto não substitui parecer jurídico sobre conformidade com a LGPD.
+
+**Severidade sugerida:** a IA responde em JSON (`format: json`); o servidor faz *parse seguro* e só aceita um dos valores
+`Crítico`, `Alto`, `Médio` ou `Baixo` (senão responde **502** com mensagem clara). A justificativa é cortada em no máximo 2 frases e é
+**omitida** se citar leis/artigos/decretos ou números que não estejam no texto do achado. O campo é preenchido como *sugestão*: o usuário
+escolhe **Aceitar** ou **Descartar**, e o uso é registrado em `ia_uso` (tipo `severidade`) e exibido nas métricas.
+
+**Achados semelhantes:** usa o modelo de embeddings **`nomic-embed-text`** (`ollama pull nomic-embed-text`). O vetor de cada achado fica na
+tabela `achados_embedding` (JSON, modelo e data), gerado em segundo plano ao criar/editar, ou em lote com `npm run embeddings`
+(o `npm run seed` também tenta gerar). A comparação é por **cosseno calculado em JavaScript**; a API devolve os 3 mais parecidos com
+similaridade ≥ limiar (`SEMELHANTES_LIMIAR`, padrão 0,75) e marca **possível duplicidade** quando o melhor passa de
+`SEMELHANTES_LIMIAR_DUPLICIDADE` (padrão 0,90). Se o Ollama ou o modelo de embeddings estiver ausente, o formulário continua normal, apenas sem a
+sugestão (a API responde 503 com "Execute: ollama pull nomic-embed-text").
 
 **Como a análise de padrões evita erros:** o sistema compara os números em JavaScript e gera *fatos numerados* prontos
 (ex.: "2. A severidade mais frequente é Alto, com 5 de 12 achados (42%)."). O modelo (temperature 0.2, `num_predict` 400) só redige
@@ -177,18 +193,21 @@ funcionando e a IA informa "IA local indisponível. Verifique se o Ollama está 
 | RF13 Relatório | `relatorio.html` | `GET /api/dashboard`, `GET /api/achados` | cobertura indireta pelos testes dos endpoints (tela verificada manualmente) |
 | RF14 Permissões | `achados.html` (botões por perfil) | `PUT/DELETE/POST desfazer` → 403 | `permissoes` |
 | RF15 Proteções | `login.html` (mensagem 429) | `POST /api/auth/login` | `seguranca` |
+| RF16 Severidade sugerida | `achados.html` (Sugerir severidade com IA) | `POST /api/ia/severidade` | `ia-severidade-semelhantes` (válida, inválida 502, justificativa, 503) |
+| RF17 Achados semelhantes | `achados.html` (Achados parecidos / duplicidade) | `GET /api/ia/semelhantes`, `npm run embeddings` | `ia-severidade-semelhantes` (cosseno, limiar, modelo ausente, reindexação) |
 | Dados de demonstração | — | `npm run seed` | `seed` |
 
 ## 7. Como rodar
 
 Requisitos: **Node.js 22.5+** (módulo `node:sqlite`) e, para a IA, o **Ollama**. O CI valida o projeto no **Node 22**
-(`npm ci` + `npm test`, 68 testes), e o desenvolvimento local foi feito no Node 24.
+(`npm ci` + `npm test`, 79 testes), e o desenvolvimento local foi feito no Node 24.
 
 ### 7.1 Ollama (IA local)
 
 ```bash
 # instale em https://ollama.com/download e depois:
-ollama pull llama3.2:3b
+ollama pull llama3.2:3b          # modelo de texto
+ollama pull nomic-embed-text     # embeddings (achados semelhantes)
 ```
 
 ### 7.2 Local (sem Docker)
@@ -198,7 +217,8 @@ cd backend
 npm install
 copy .env.example .env        # Linux/macOS: cp .env.example .env  (troque o JWT_SECRET)
 npm start                     # API em http://localhost:3000
-npm run seed                  # (opcional) dados de demonstração
+npm run seed                  # (opcional) dados de demonstração (gera embeddings se o Ollama estiver no ar)
+npm run embeddings            # (opcional) gera embeddings dos achados existentes (--todos para regenerar)
 npm test                      # testes (não exigem Ollama)
 ```
 
@@ -232,6 +252,9 @@ docker compose down                       # use "down -v" para apagar também o 
 | `OLLAMA_URL` | `http://localhost:11434` | Endereço do Ollama |
 | `OLLAMA_MODEL` | `llama3.2:3b` | Modelo |
 | `OLLAMA_TIMEOUT_MS` | `120000` | Tempo máximo de espera pela IA |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Modelo de embeddings |
+| `SEMELHANTES_LIMIAR` | `0.75` | Similaridade mínima para listar um achado parecido |
+| `SEMELHANTES_LIMIAR_DUPLICIDADE` | `0.90` | Similaridade a partir da qual aparece o alerta de possível duplicidade |
 | `SAAC_DB_PATH` | `backend/saac.db` | Arquivo do banco (usado pelos testes e pelo Docker) |
 
 ## 8. Usuários de teste
@@ -268,6 +291,8 @@ Todas as rotas, exceto cadastro/login/health, exigem `Authorization: Bearer <tok
 | GET | `/api/achados/:id/auditoria` | Trilha de auditoria (quem, ação, quando, antes/depois, campos alterados) |
 | GET | `/api/dashboard` | Totais, por severidade, por status, top 5 órgãos |
 | GET | `/api/ia/status` | Ollama no ar? Modelo instalado? |
+| POST | `/api/ia/severidade` | `{ titulo, descricao }` → `{ severidade, justificativa, modelo, tempo_ms, uso_id }` (502 se a severidade vier inválida) |
+| GET | `/api/ia/semelhantes` | `?titulo&descricao[&orgao_id&excluir_id]` → 3 mais parecidos `{ id, titulo, orgao_nome, severidade, percentual }` + `possivel_duplicidade` |
 | POST | `/api/ia/recomendacao` | `{ recomendacao, modelo, tempo_ms, base_utilizada, uso_id }` |
 | GET | `/api/ia/padroes` | `{ estatisticas, fatos, analise, interpretado, modelo, tempo_ms }` |
 | POST | `/api/ia/uso/:id/resultado` | `{ resultado: "aceita" \| "descartada" }` |
@@ -285,10 +310,10 @@ saac_aps/
 ├── backend/
 │   ├── server.js                 # app Express (helmet, CORS); só escuta a porta se executado direto
 │   ├── db.js                     # SQLite, migrações idempotentes e views
-│   ├── seed.js, Dockerfile
+│   ├── seed.js, embeddings.js, Dockerfile
 │   ├── middleware/               # auth.js (JWT + perfil), limiteLogin.js
 │   ├── routes/                   # auth, orgaos, achados, dashboard, ia
-│   ├── services/                 # ia.js, padroes.js, auditoria.js
+│   ├── services/                 # ia.js, padroes.js, auditoria.js, semelhantes.js
 │   ├── memento/achado.js         # padrão Memento
 │   └── tests/                    # node:test + servidor Ollama falso
 └── frontend/
@@ -316,6 +341,8 @@ saac_aps/
 ## 13. Limitações conhecidas
 
 - A IA (modelo 3B) **pode errar**; sempre revisar. A validação checa os números citados, não o sentido do texto. O modelo tende a repetir os fatos quase literalmente.
+- A similaridade por embeddings tem "ruído de fundo": com o limiar padrão (0,75) podem aparecer achados só vagamente relacionados; ajuste `SEMELHANTES_LIMIAR`. A busca compara com todos os vetores em JavaScript (adequado para centenas/milhares de achados, não para milhões).
+- A severidade sugerida é um apoio: o modelo 3B tende a classificar de forma conservadora e pode divergir do julgamento do auditor.
 - O limite de tentativas de login fica **em memória**: reinicia com o servidor e não é compartilhado entre instâncias.
 - O token JWT fica no `localStorage` do navegador e não há *refresh token*; a sessão expira em 2 h.
 - Dois perfis apenas (admin/auditor); não há gestão de usuários pela interface.
