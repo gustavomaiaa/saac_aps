@@ -54,4 +54,6 @@ async function novoAchado(token, orgaoId, extra = {}) {
   return r.corpo.achado;
 }
 
-module.exports = { iniciar, encerrar, req, novoUsuario, novoOrgao, novoAchado, db };
+const urlBase = () => base;
+
+module.exports = { urlBase, iniciar, encerrar, req, novoUsuario, novoOrgao, novoAchado, db };

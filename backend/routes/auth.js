@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
+const { limitarLogin, registrarFalha, registrarSucesso } = require('../middleware/limiteLogin');
 
 const router = express.Router();
 
@@ -85,7 +86,7 @@ router.post('/cadastro', (req, res) => {
   }
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', limitarLogin, (req, res) => {
   const { email, senha } = req.body;
 
   if (!email || !senha) {
@@ -96,15 +97,18 @@ router.post('/login', (req, res) => {
     const usuarioDb = db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email.toLowerCase());
 
     if (!usuarioDb) {
+      registrarFalha(req);
       return res.status(401).json({ sucesso: false, erro: 'Email ou senha incorretos.' });
     }
 
     const senhaCorreta = bcrypt.compareSync(senha, usuarioDb.senha);
 
     if (!senhaCorreta) {
+      registrarFalha(req);
       return res.status(401).json({ sucesso: false, erro: 'Email ou senha incorretos.' });
     }
 
+    registrarSucesso(req);
     const usuario = { id: usuarioDb.id, nome: usuarioDb.nome, email: usuarioDb.email, area: usuarioDb.area, perfil: usuarioDb.perfil };
 
     const token = jwt.sign(usuario, process.env.JWT_SECRET, {
