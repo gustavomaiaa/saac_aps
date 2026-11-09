@@ -26,3 +26,9 @@
 - [x] Frontend: botão "Sugerir severidade com IA" (Aceitar/Descartar), "Achados parecidos" com link e alerta; métricas por tipo no dashboard
 - [x] Testes com servidor falso (79 no total) e teste real com o Ollama (modelo `nomic-embed-text` baixado nesta máquina)
 - Pendente (manual no navegador): conferir visualmente o formulário (caixas de severidade e achados parecidos).
+
+## Ajustes finais
+- [x] `SEMELHANTES_LIMIAR` padrão 0,80 (duplicidade segue 0,90)
+- [x] Análise de padrões: 3 observações de interpretação (risco/concentração/tendência) com citações [n] + ação prioritária; validação descarta [n] inexistente, número fora dos fatos, cópia de fato e linha cortada; fallback mantido
+- [x] Verificação no navegador (Chromium + playwright-core, fora do projeto): prints em `docs/prints/`
+- [x] CSS: botões Aceitar/Descartar e Cancelar/Salvar corrigidos (apareciam esticados)

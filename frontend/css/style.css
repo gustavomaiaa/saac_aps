@@ -203,3 +203,5 @@ a.btn-principal:hover { background: var(--azul-escuro); }
 .interpretacao-ia { background: #f5f3ff; border: 1px solid #c4b5fd; border-left: 4px solid #7c3aed; border-radius: 8px; padding: 10px 14px; margin-top: 10px; }
 .interpretacao-ia h4 { margin: 0 0 6px; font-size: 14px; color: #5b21b6; }
 .texto-ia.sem-interpretacao { color: #92400e; font-weight: 600; }
+.ia-acoes .btn-principal, .ia-acoes .btn-secundario { width: auto; margin-top: 0; padding: 5px 12px; font-size: 12px; }
+.modal-acoes button { margin-top: 0 !important; align-self: center; }
