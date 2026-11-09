@@ -110,6 +110,8 @@ function limparFormulario() {
   document.getElementById('achado-status').value = 'Em aberto';
   document.getElementById('achado-recomendacao').value = '';
   resetarIA();
+  document.getElementById('bloco-historico').style.display = 'none';
+  document.getElementById('erro-desfazer').textContent = '';
   ['titulo', 'descricao', 'orgao', 'severidade'].forEach((c) => { document.getElementById(`erro-${c}`).textContent = ''; });
   alertaForm.className = 'alerta';
   alertaForm.textContent = '';
@@ -133,6 +135,8 @@ function abrirFormEdicao(id, achados) {
   document.getElementById('achado-severidade').value = achado.severidade;
   document.getElementById('achado-status').value = achado.status;
   document.getElementById('achado-recomendacao').value = achado.recomendacao || '';
+  document.getElementById('bloco-historico').style.display = 'block';
+  carregarHistorico(achado.id);
   overlayForm.classList.add('aberto');
 }
 
@@ -227,6 +231,47 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
   } finally {
     btn.disabled = false;
     btn.textContent = 'Excluir';
+  }
+});
+
+// --- Histórico de edições e desfazer (Memento) ---
+async function carregarHistorico(id) {
+  const lista = document.getElementById('lista-historico');
+  const btnDesfazer = document.getElementById('btn-desfazer');
+  lista.innerHTML = '<li class="vazio-hist">Carregando...</li>';
+  try {
+    const { ok, dados } = await api(`/achados/${id}/historico`);
+    if (!ok) throw new Error(dados.erro);
+    lista.innerHTML = dados.historico.length
+      ? dados.historico.map((i) => `<li>${esc(i.rotulo)} — ${esc(i.criado_em.replace('T', ' ').slice(0, 16))}</li>`).join('')
+      : '<li class="vazio-hist">Nenhuma edição registrada.</li>';
+    btnDesfazer.disabled = dados.historico.length === 0;
+  } catch (e) {
+    lista.innerHTML = '<li class="vazio-hist">Não foi possível carregar o histórico.</li>';
+  }
+}
+
+document.getElementById('btn-desfazer').addEventListener('click', async () => {
+  const id = document.getElementById('achado-id').value;
+  const erroEl = document.getElementById('erro-desfazer');
+  const btn = document.getElementById('btn-desfazer');
+  erroEl.textContent = '';
+  btn.disabled = true;
+  try {
+    const { ok, dados } = await api(`/achados/${id}/desfazer`, { method: 'POST' });
+    if (!ok) { erroEl.textContent = dados.erro || 'Não foi possível desfazer.'; return; }
+    const a = dados.achado;
+    document.getElementById('achado-titulo').value = a.titulo;
+    document.getElementById('achado-descricao').value = a.descricao;
+    document.getElementById('achado-orgao').value = a.orgao_id;
+    document.getElementById('achado-severidade').value = a.severidade;
+    document.getElementById('achado-status').value = a.status;
+    document.getElementById('achado-recomendacao').value = a.recomendacao || '';
+    carregarAchados();
+  } catch (e) {
+    erroEl.textContent = 'Erro de conexão com o servidor.';
+  } finally {
+    await carregarHistorico(id);
   }
 });
 

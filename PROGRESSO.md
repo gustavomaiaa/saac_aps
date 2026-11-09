@@ -6,7 +6,7 @@ Checklist para retomar o trabalho. Atualizado a cada etapa.
 - [x] Etapa 2 — Filtros, busca e paginação
 - [x] Etapa 3 — Exclusão lógica de achados
 - [x] Etapa 4 — IA local com Ollama
-- [ ] Etapa 5 — Histórico e desfazer (Memento)
+- [x] Etapa 5 — Histórico e desfazer (Memento)
 - [ ] Etapa 6 — Exportação CSV e relatório
 - [ ] Etapa 7 — Permissões e sessão
 - [ ] Etapa 8 — Testes, seed e documentação

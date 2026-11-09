@@ -3,6 +3,7 @@
 const express = require('express');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
+const { Achado, persistencia } = require('../memento/achado');
 
 const router = express.Router();
 router.use(autenticarToken);
@@ -12,6 +13,14 @@ const STATUS_VALIDOS = ['Em aberto', 'Em análise', 'Implementado', 'Rejeitado']
 function severidadeValida(s) { return SEVERIDADES_VALIDAS.includes(s); }
 function statusValido(s) { return STATUS_VALIDOS.includes(s); }
 const MAX_RECOMENDACAO = 2000;
+
+// Grava no banco o estado (campos editaveis) de um achado
+function gravarEstado(id, estado) {
+  db.prepare(
+    `UPDATE achados SET titulo = ?, descricao = ?, severidade = ?, status = ?, orgao_id = ?, recomendacao = ?,
+       atualizado_em = datetime('now') WHERE id = ?`
+  ).run(estado.titulo, estado.descricao, estado.severidade, estado.status, estado.orgao_id, estado.recomendacao, id);
+}
 // Texto vazio vira NULL; devolve undefined se o campo nao foi enviado
 function normalizarRecomendacao(valor) {
   if (valor === undefined) return undefined;
@@ -127,11 +136,23 @@ router.put('/:id', (req, res) => {
     const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(orgao_id);
     if (!orgao) return res.status(400).json({ sucesso: false, erro: 'Órgão informado não existe.' });
 
-    db.prepare(
-      `UPDATE achados SET titulo = ?, descricao = ?, severidade = ?, status = ?, orgao_id = ?, recomendacao = ?, atualizado_em = datetime('now')
-       WHERE id = ?`
-    ).run(titulo.trim(), descricao.trim(), severidade, status, orgao_id,
-      recomendacao === undefined ? existente.recomendacao : recomendacao, req.params.id);
+    // Memento: guarda um snapshot do estado atual ANTES de atualizar (permite desfazer)
+    const originador = new Achado(existente);
+    const historico = persistencia.carregar(db, existente.id, originador);
+    db.exec('BEGIN');
+    try {
+      const memento = historico.registrar(`Antes da edição por ${req.usuario.nome}`);
+      persistencia.gravar(db, existente.id, req.usuario.id, memento);
+      originador.editar({
+        titulo: titulo.trim(), descricao: descricao.trim(), severidade, status, orgao_id,
+        recomendacao: recomendacao === undefined ? existente.recomendacao : recomendacao,
+      });
+      gravarEstado(existente.id, originador.resumo());
+      db.exec('COMMIT');
+    } catch (erroTransacao) {
+      db.exec('ROLLBACK');
+      throw erroTransacao;
+    }
 
     const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(req.params.id);
 
@@ -139,6 +160,51 @@ router.put('/:id', (req, res) => {
   } catch (erro) {
     console.error('Erro ao atualizar achado:', erro);
     return res.status(500).json({ sucesso: false, erro: 'Erro interno ao atualizar achado.' });
+  }
+});
+
+// Histórico de edições (somente rótulo e data — o estado salvo nunca é exposto)
+router.get('/:id/historico', (req, res) => {
+  try {
+    const existente = db.prepare('SELECT * FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
+    if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
+    const historico = persistencia.carregar(db, existente.id, new Achado(existente));
+    const itens = historico.listar().reverse().map((m) => ({ rotulo: m.rotulo, criado_em: m.criadoEm }));
+    return res.status(200).json({ sucesso: true, total: itens.length, historico: itens });
+  } catch (erro) {
+    console.error('Erro ao listar histórico:', erro);
+    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao listar o histórico.' });
+  }
+});
+
+// Desfaz a última edição: restaura o último snapshot e grava no banco
+router.post('/:id/desfazer', (req, res) => {
+  try {
+    const existente = db.prepare('SELECT * FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
+    if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
+
+    const originador = new Achado(existente);
+    const historico = persistencia.carregar(db, existente.id, originador);
+    if (historico.listar().length === 0) {
+      return res.status(409).json({ sucesso: false, erro: 'Nada a desfazer.' });
+    }
+
+    db.exec('BEGIN');
+    try {
+      historico.desfazer();
+      persistencia.removerUltimo(db, existente.id);
+      gravarEstado(existente.id, originador.resumo());
+      db.exec('COMMIT');
+    } catch (erroTransacao) {
+      db.exec('ROLLBACK');
+      throw erroTransacao;
+    }
+
+    const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(existente.id);
+    return res.status(200).json({ sucesso: true, mensagem: 'Última edição desfeita com sucesso!', achado });
+  } catch (erro) {
+    console.error('Erro ao desfazer edição:', erro);
+    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao desfazer a edição.' });
   }
 });
 

@@ -88,6 +88,21 @@ db.exec(`
   );
 `);
 
+// --- Sprint V: historico de edicoes de achados (padrao Memento) ---
+// Cada linha guarda um snapshot (estado_json) do achado ANTES de uma edicao.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS achados_historico (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    achado_id INTEGER NOT NULL,
+    rotulo TEXT NOT NULL,
+    estado_json TEXT NOT NULL,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    usuario_id INTEGER NOT NULL,
+    FOREIGN KEY (achado_id) REFERENCES achados(id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  );
+`);
+
 // --- Sprint V: views usadas pelo dashboard e pelas listagens ---
 // Recriadas a cada inicializacao (nao guardam dados, entao e seguro e idempotente).
 db.exec('DROP VIEW IF EXISTS vw_achados_detalhados;');

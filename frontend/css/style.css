@@ -176,3 +176,8 @@ a.btn-principal:hover { background: var(--azul-escuro); }
 .estatisticas-ia div { background: var(--cinza-fundo); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; }
 .estatisticas-ia b { display: block; color: var(--azul-escuro); margin-bottom: 3px; }
 .metricas-ia { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+
+/* --- Histórico (Memento) --- */
+.bloco-historico { margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 4px; }
+.lista-historico { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: #4b5563; max-height: 110px; overflow-y: auto; }
+.lista-historico li.vazio-hist { list-style: none; margin-left: -18px; color: #9ca3af; }
