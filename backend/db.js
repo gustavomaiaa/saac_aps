@@ -112,6 +112,22 @@ db.exec(`
   );
 `);
 
+// --- Auditoria: quem fez o que e quando (criar, editar, excluir e restaurar achados) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS auditoria (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL,
+    acao TEXT NOT NULL CHECK (acao IN ('criar', 'editar', 'excluir', 'restaurar')),
+    entidade TEXT NOT NULL,
+    entidade_id INTEGER NOT NULL,
+    antes TEXT,
+    depois TEXT,
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  );
+`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_auditoria_entidade ON auditoria (entidade, entidade_id);');
+
 // --- Sprint V: views usadas pelo dashboard e pelas listagens ---
 // Recriadas a cada inicializacao (nao guardam dados, entao e seguro e idempotente).
 db.exec('DROP VIEW IF EXISTS vw_achados_detalhados;');

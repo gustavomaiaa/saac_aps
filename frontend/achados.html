@@ -65,6 +65,10 @@
   <div class="overlay" id="overlay-form">
     <div class="modal">
       <h3 id="form-titulo">Novo Achado</h3>
+      <div class="abas" id="abas-achado" style="display:none;">
+        <button type="button" class="aba ativa" id="aba-dados">Dados</button>
+        <button type="button" class="aba" id="aba-auditoria">Histórico de auditoria</button>
+      </div>
       <form id="form-achado">
         <input type="hidden" id="achado-id" />
         <label class="campo-label" for="achado-titulo">Título</label>
@@ -118,6 +122,11 @@
           <button type="submit" class="btn btn-principal" id="btn-salvar-achado">Salvar</button>
         </div>
       </form>
+      <div id="painel-auditoria" style="display:none;">
+        <p class="ia-meta">Quem fez o quê e quando neste achado (criação, edições, restaurações e exclusão).</p>
+        <div id="lista-auditoria"></div>
+        <div class="modal-acoes"><button type="button" class="btn btn-secundario" id="btn-fechar-auditoria">Fechar</button></div>
+      </div>
     </div>
   </div>
 

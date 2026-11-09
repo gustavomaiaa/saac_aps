@@ -117,6 +117,8 @@ function limparFormulario() {
   resetarIA();
   document.getElementById('bloco-historico').style.display = 'none';
   document.getElementById('erro-desfazer').textContent = '';
+  document.getElementById('abas-achado').style.display = 'none';
+  mostrarAba('dados');
   ['titulo', 'descricao', 'orgao', 'severidade'].forEach((c) => { document.getElementById(`erro-${c}`).textContent = ''; });
   alertaForm.className = 'alerta';
   alertaForm.textContent = '';
@@ -141,6 +143,7 @@ function abrirFormEdicao(id, achados) {
   document.getElementById('achado-status').value = achado.status;
   document.getElementById('achado-recomendacao').value = achado.recomendacao || '';
   document.getElementById('bloco-historico').style.display = 'block';
+  document.getElementById('abas-achado').style.display = 'flex';
   carregarHistorico(achado.id);
   overlayForm.classList.add('aberto');
 }
@@ -260,6 +263,42 @@ document.getElementById('btn-exportar').addEventListener('click', async () => {
     btn.textContent = 'Exportar CSV';
   }
 });
+
+// --- Aba "Histórico de auditoria" (quem fez o quê e quando) ---
+const NOMES_ACAO = { criar: 'Criou o achado', editar: 'Editou o achado', excluir: 'Excluiu o achado', restaurar: 'Desfez a última edição' };
+const NOMES_CAMPO = { titulo: 'Título', descricao: 'Descrição', severidade: 'Severidade', status: 'Status', orgao_id: 'Órgão (id)', recomendacao: 'Recomendação' };
+
+function mostrarAba(aba) {
+  const auditoria = aba === 'auditoria';
+  formAchado.style.display = auditoria ? 'none' : 'block';
+  document.getElementById('painel-auditoria').style.display = auditoria ? 'block' : 'none';
+  document.getElementById('aba-dados').classList.toggle('ativa', !auditoria);
+  document.getElementById('aba-auditoria').classList.toggle('ativa', auditoria);
+}
+
+async function carregarAuditoria(id) {
+  const alvo = document.getElementById('lista-auditoria');
+  alvo.innerHTML = '<div class="vazio">Carregando...</div>';
+  try {
+    const { ok, dados } = await api(`/achados/${id}/auditoria`);
+    if (!ok) throw new Error(dados.erro);
+    alvo.innerHTML = dados.auditoria.length ? dados.auditoria.map((a) => `
+      <div class="item-auditoria">
+        <b>${esc(a.usuario_nome)}</b> — ${esc(NOMES_ACAO[a.acao] || a.acao)}
+        <span class="data-auditoria">${esc(String(a.criado_em).slice(0, 16))}</span>
+        ${a.mudancas.length ? '<ul>' + a.mudancas.map((m) => `<li>${esc(NOMES_CAMPO[m.campo] || m.campo)}: <s>${esc(m.antes ?? '—')}</s> → ${esc(m.depois ?? '—')}</li>`).join('') + '</ul>' : ''}
+      </div>`).join('') : '<div class="vazio">Nenhum registro de auditoria para este achado (anterior à auditoria).</div>';
+  } catch (e) {
+    alvo.innerHTML = '<div class="vazio">Não foi possível carregar a auditoria.</div>';
+  }
+}
+
+document.getElementById('aba-dados').addEventListener('click', () => mostrarAba('dados'));
+document.getElementById('aba-auditoria').addEventListener('click', () => {
+  mostrarAba('auditoria');
+  carregarAuditoria(document.getElementById('achado-id').value);
+});
+document.getElementById('btn-fechar-auditoria').addEventListener('click', () => overlayForm.classList.remove('aberto'));
 
 // --- Histórico de edições e desfazer (Memento) ---
 async function carregarHistorico(id) {

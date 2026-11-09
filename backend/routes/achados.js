@@ -4,6 +4,7 @@ const express = require('express');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
 const { Achado, persistencia } = require('../memento/achado');
+const auditoria = require('../services/auditoria');
 
 const router = express.Router();
 router.use(autenticarToken);
@@ -67,6 +68,7 @@ router.post('/', (req, res) => {
     ).run(titulo.trim(), descricao.trim(), severidade, status || 'Em aberto', orgao_id, req.usuario.id, recomendacao ?? null);
 
     const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(resultado.lastInsertRowid);
+    auditoria.registrar({ usuarioId: req.usuario.id, acao: 'criar', entidadeId: achado.id, depois: auditoria.estadoAchado(achado) });
 
     return res.status(201).json({ sucesso: true, mensagem: 'Achado cadastrado com sucesso!', achado });
   } catch (erro) {
@@ -191,6 +193,7 @@ router.put('/:id', (req, res) => {
         recomendacao: recomendacao === undefined ? existente.recomendacao : recomendacao,
       });
       gravarEstado(existente.id, originador.resumo());
+      auditoria.registrar({ usuarioId: req.usuario.id, acao: 'editar', entidadeId: existente.id, antes: auditoria.estadoAchado(existente), depois: auditoria.estadoAchado(originador.resumo()) });
       db.exec('COMMIT');
     } catch (erroTransacao) {
       db.exec('ROLLBACK');
@@ -203,6 +206,20 @@ router.put('/:id', (req, res) => {
   } catch (erro) {
     console.error('Erro ao atualizar achado:', erro);
     return res.status(500).json({ sucesso: false, erro: 'Erro interno ao atualizar achado.' });
+  }
+});
+
+// Trilha de auditoria do achado: quem fez o quê e quando (inclui achados já excluídos)
+router.get('/:id/auditoria', (req, res) => {
+  try {
+    const registros = auditoria.listar('achado', req.params.id);
+    if (registros.length === 0 && !db.prepare('SELECT id FROM achados WHERE id = ?').get(req.params.id)) {
+      return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
+    }
+    return res.status(200).json({ sucesso: true, total: registros.length, auditoria: registros });
+  } catch (erro) {
+    console.error('Erro ao listar auditoria:', erro);
+    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao listar a auditoria.' });
   }
 });
 
@@ -238,6 +255,7 @@ router.post('/:id/desfazer', (req, res) => {
       historico.desfazer();
       persistencia.removerUltimo(db, existente.id);
       gravarEstado(existente.id, originador.resumo());
+      auditoria.registrar({ usuarioId: req.usuario.id, acao: 'restaurar', entidadeId: existente.id, antes: auditoria.estadoAchado(existente), depois: auditoria.estadoAchado(originador.resumo()) });
       db.exec('COMMIT');
     } catch (erroTransacao) {
       db.exec('ROLLBACK');
@@ -254,11 +272,12 @@ router.post('/:id/desfazer', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   try {
-    const existente = db.prepare('SELECT id, criado_por_id FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
+    const existente = db.prepare('SELECT * FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
     if (!podeModificar(req, existente)) return negarPermissao(res, 'excluir este achado');
     // Exclusão lógica: o registro é preservado, apenas marcado como excluído
     db.prepare("UPDATE achados SET excluido_em = datetime('now') WHERE id = ?").run(req.params.id);
+    auditoria.registrar({ usuarioId: req.usuario.id, acao: 'excluir', entidadeId: existente.id, antes: auditoria.estadoAchado(existente), depois: { excluido: true } });
     return res.status(200).json({ sucesso: true, mensagem: 'Achado excluído com sucesso!' });
   } catch (erro) {
     console.error('Erro ao excluir achado:', erro);
