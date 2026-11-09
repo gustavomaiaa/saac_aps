@@ -1,5 +1,7 @@
 # SAAC — Sistema de Achados de Auditoria e Conformidade
 
+[![CI](https://github.com/gustavomaiaa/saac_aps/actions/workflows/ci.yml/badge.svg)](https://github.com/gustavomaiaa/saac_aps/actions/workflows/ci.yml)
+
 Sistema web para registrar achados de auditoria vinculados a órgãos auditados, acompanhar sua situação e
 obter apoio de uma **IA local (Ollama)** para sugerir recomendações e analisar padrões.
 
