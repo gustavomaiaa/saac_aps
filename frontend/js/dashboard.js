@@ -66,7 +66,8 @@ async function carregarMetricas() {
     alvo.innerHTML = `
       <div class="card-total"><span>${dados.total_usos}</span><p>Usos da IA</p></div>
       <div class="card-total"><span>${dados.total_usos ? (dados.tempo_medio_ms / 1000).toFixed(1) + 's' : '—'}</span><p>Tempo médio</p></div>
-      <div class="card-total"><span>${taxa}</span><p>Taxa de aceitação (${dados.aceitas} aceitas / ${dados.descartadas} descartadas)</p></div>`;
+      <div class="card-total"><span>${taxa}</span><p>Taxa de aceitação (${dados.aceitas} aceitas / ${dados.descartadas} descartadas)</p></div>
+      <div class="card-total"><span>${dados.por_tipo.recomendacao} / ${dados.por_tipo.severidade} / ${dados.por_tipo.padroes}</span><p>Usos: recomendação / severidade / padrões</p></div>`;
   } catch (e) {
     alvo.innerHTML = '<div class="vazio">Não foi possível carregar as métricas.</div>';
   }

@@ -115,6 +115,8 @@ function limparFormulario() {
   document.getElementById('achado-status').value = 'Em aberto';
   document.getElementById('achado-recomendacao').value = '';
   resetarIA();
+  resetarSeveridadeIA();
+  esconderParecidos();
   document.getElementById('bloco-historico').style.display = 'none';
   document.getElementById('erro-desfazer').textContent = '';
   document.getElementById('abas-achado').style.display = 'none';
@@ -238,6 +240,114 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
     btn.textContent = 'Excluir';
   }
 });
+
+// --- IA local: severidade sugerida ---
+let usoSevAtual = null;
+let severidadeAntesDaIA = '';
+
+function resetarSeveridadeIA() {
+  usoSevAtual = null;
+  ['sev-box', 'sev-carregando', 'sev-erro', 'sev-resultado', 'sev-decisao'].forEach((id) => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById('sev-acoes').style.display = 'flex';
+  document.getElementById('btn-sugerir-sev').disabled = false;
+}
+
+document.getElementById('btn-sugerir-sev').addEventListener('click', async () => {
+  const titulo = document.getElementById('achado-titulo').value.trim();
+  const descricao = document.getElementById('achado-descricao').value.trim();
+  const erroEl = document.getElementById('sev-erro');
+  const btn = document.getElementById('btn-sugerir-sev');
+  resetarSeveridadeIA();
+  document.getElementById('sev-box').style.display = 'block';
+  if (!titulo || !descricao) {
+    erroEl.style.display = 'block';
+    erroEl.textContent = 'Preencha título e descrição antes de pedir a sugestão.';
+    return;
+  }
+  btn.disabled = true;
+  document.getElementById('sev-carregando').style.display = 'block';
+  try {
+    const { ok, dados } = await api('/ia/severidade', { method: 'POST', body: JSON.stringify({ titulo, descricao }) });
+    document.getElementById('sev-carregando').style.display = 'none';
+    if (!ok) {
+      erroEl.style.display = 'block';
+      erroEl.textContent = dados.erro || 'Não foi possível sugerir a severidade.';
+      return;
+    }
+    const campo = document.getElementById('achado-severidade');
+    severidadeAntesDaIA = campo.value;
+    campo.value = dados.severidade; // sugestão: o usuário confirma (Aceitar) ou descarta
+    usoSevAtual = dados.uso_id;
+    document.getElementById('sev-valor').textContent = dados.severidade;
+    document.getElementById('sev-justificativa').textContent = dados.justificativa;
+    document.getElementById('sev-meta').textContent = `Modelo: ${dados.modelo} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s · Base: título e descrição informados`;
+    document.getElementById('sev-resultado').style.display = 'block';
+  } catch (e) {
+    document.getElementById('sev-carregando').style.display = 'none';
+    erroEl.style.display = 'block';
+    erroEl.textContent = 'Erro de conexão com o servidor. O restante do formulário continua funcionando.';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function decidirSeveridade(resultado) {
+  if (usoSevAtual) api(`/ia/uso/${usoSevAtual}/resultado`, { method: 'POST', body: JSON.stringify({ resultado }) }).catch(() => {});
+  usoSevAtual = null;
+  document.getElementById('sev-acoes').style.display = 'none';
+  const decisao = document.getElementById('sev-decisao');
+  decisao.style.display = 'block';
+  if (resultado === 'descartada') {
+    document.getElementById('achado-severidade').value = severidadeAntesDaIA;
+    decisao.textContent = 'Sugestão descartada.';
+  } else {
+    decisao.textContent = 'Sugestão aceita. Revise e salve o achado.';
+  }
+}
+document.getElementById('btn-sev-aceitar').addEventListener('click', () => decidirSeveridade('aceita'));
+document.getElementById('btn-sev-descartar').addEventListener('click', () => decidirSeveridade('descartada'));
+
+// --- IA local: achados parecidos (embeddings). Falhas são silenciosas: o formulário segue normal. ---
+let temporizadorParecidos = null;
+let sequenciaParecidos = 0;
+
+function esconderParecidos() {
+  sequenciaParecidos += 1; // ignora respostas em andamento
+  clearTimeout(temporizadorParecidos);
+  document.getElementById('parecidos-box').style.display = 'none';
+}
+
+async function buscarParecidos() {
+  const titulo = document.getElementById('achado-titulo').value.trim();
+  const descricao = document.getElementById('achado-descricao').value.trim();
+  const orgaoId = document.getElementById('achado-orgao').value;
+  if (document.getElementById('achado-id').value || titulo.length < 5 || descricao.length < 15) return esconderParecidos();
+  const minhaVez = ++sequenciaParecidos;
+  try {
+    const params = new URLSearchParams({ titulo, descricao });
+    if (orgaoId) params.set('orgao_id', orgaoId);
+    const { ok, dados } = await api(`/ia/semelhantes?${params.toString()}`);
+    if (minhaVez !== sequenciaParecidos) return; // resposta antiga
+    if (!ok || !dados.semelhantes || dados.semelhantes.length === 0) {
+      document.getElementById('parecidos-box').style.display = 'none';
+      return;
+    }
+    document.getElementById('parecidos-alerta').style.display = dados.possivel_duplicidade ? 'block' : 'none';
+    document.getElementById('parecidos-lista').innerHTML = dados.semelhantes.map((s) => `
+      <li><a href="achados.html?achado=${s.id}" target="_blank" rel="noopener">#${s.id} ${esc(s.titulo)}</a>
+        — <b>${s.percentual}%</b> · ${esc(s.orgao_nome)} · ${esc(s.severidade)}</li>`).join('');
+    document.getElementById('parecidos-box').style.display = 'block';
+  } catch (e) {
+    document.getElementById('parecidos-box').style.display = 'none';
+  }
+}
+
+function agendarParecidos() {
+  clearTimeout(temporizadorParecidos);
+  temporizadorParecidos = setTimeout(buscarParecidos, 900);
+}
+['achado-titulo', 'achado-descricao'].forEach((id) => document.getElementById(id).addEventListener('input', agendarParecidos));
+document.getElementById('achado-orgao').addEventListener('change', agendarParecidos);
 
 // --- Exportação CSV (respeita os filtros atuais) ---
 document.getElementById('btn-exportar').addEventListener('click', async () => {
@@ -432,4 +542,11 @@ api('/auth/verify')
   })
   .catch(() => {})
   .then(carregarOrgaosSelects)
-  .then(carregarAchados);
+  .then(carregarAchados)
+  .then(async () => {
+    // Link de "achados parecidos": achados.html?achado=ID abre o achado
+    const id = new URLSearchParams(window.location.search).get('achado');
+    if (!id) return;
+    const { ok, dados } = await api('/achados/' + encodeURIComponent(id));
+    if (ok && dados.achado) abrirFormEdicao(dados.achado.id, [dados.achado]);
+  });

@@ -77,14 +77,36 @@
         <label class="campo-label" for="achado-descricao">Descrição</label>
         <textarea id="achado-descricao" placeholder="Descreva o achado em detalhes..."></textarea>
         <div class="campo-erro" id="erro-descricao"></div>
+        <div class="ia-box parecidos-box" id="parecidos-box" style="display:none;">
+          <div class="parecidos-alerta" id="parecidos-alerta" style="display:none;">⚠️ Possível duplicidade: já existe um achado muito parecido com este.</div>
+          <strong>Achados parecidos</strong> <span class="ia-meta">(similaridade por IA local, revise)</span>
+          <ul id="parecidos-lista"></ul>
+        </div>
         <label class="campo-label" for="achado-orgao">Órgão</label>
         <select id="achado-orgao"><option value="">Selecione...</option></select>
         <div class="campo-erro" id="erro-orgao"></div>
-        <label class="campo-label" for="achado-severidade">Severidade</label>
+        <div class="linha-rotulo">
+          <label class="campo-label" for="achado-severidade">Severidade</label>
+          <button type="button" class="btn btn-secundario btn-pequeno" id="btn-sugerir-sev">Sugerir severidade com IA</button>
+        </div>
         <select id="achado-severidade">
           <option value="">Selecione...</option><option>Crítico</option><option>Alto</option><option>Médio</option><option>Baixo</option>
         </select>
         <div class="campo-erro" id="erro-severidade"></div>
+        <div class="ia-box" id="sev-box" style="display:none;">
+          <div class="ia-carregando" id="sev-carregando" style="display:none;">⏳ Avaliando a severidade com a IA local...</div>
+          <div class="ia-erro" id="sev-erro" style="display:none;"></div>
+          <div id="sev-resultado" style="display:none;">
+            <p class="ia-aviso">⚠️ Sugestão gerada por IA, revise antes de salvar.</p>
+            <p><b id="sev-valor"></b> — <span id="sev-justificativa"></span></p>
+            <p class="ia-meta" id="sev-meta"></p>
+            <div class="ia-acoes" id="sev-acoes">
+              <button type="button" class="btn btn-principal btn-pequeno" id="btn-sev-aceitar">Aceitar</button>
+              <button type="button" class="btn btn-secundario btn-pequeno" id="btn-sev-descartar">Descartar</button>
+            </div>
+            <p class="ia-decisao" id="sev-decisao" style="display:none;"></p>
+          </div>
+        </div>
         <label class="campo-label" for="achado-status">Status</label>
         <select id="achado-status">
           <option>Em aberto</option><option>Em análise</option><option>Implementado</option><option>Rejeitado</option>

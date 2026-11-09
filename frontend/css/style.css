@@ -191,3 +191,8 @@ a.btn-principal:hover { background: var(--azul-escuro); }
 .item-auditoria { border-left: 3px solid var(--azul-claro); background: var(--cinza-fundo); border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
 .item-auditoria ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: #4b5563; }
 .data-auditoria { float: right; font-size: 11.5px; color: #9ca3af; }
+
+/* --- Achados parecidos --- */
+.parecidos-box { background: #f0f9ff; border-color: #bae6fd; }
+.parecidos-box ul { margin: 6px 0 0; padding-left: 18px; }
+.parecidos-alerta { background: #fef3c7; color: #92400e; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-weight: 600; }
