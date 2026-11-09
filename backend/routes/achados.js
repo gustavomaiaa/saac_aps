@@ -5,6 +5,7 @@ const db = require('../db');
 const autenticarToken = require('../middleware/auth');
 const { Achado, persistencia } = require('../memento/achado');
 const auditoria = require('../services/auditoria');
+const semelhantes = require('../services/semelhantes');
 
 const router = express.Router();
 router.use(autenticarToken);
@@ -69,6 +70,7 @@ router.post('/', (req, res) => {
 
     const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(resultado.lastInsertRowid);
     auditoria.registrar({ usuarioId: req.usuario.id, acao: 'criar', entidadeId: achado.id, depois: auditoria.estadoAchado(achado) });
+    semelhantes.atualizarEmbeddingEmSegundoPlano(achado.id); // não bloqueia nem falha se a IA estiver fora
 
     return res.status(201).json({ sucesso: true, mensagem: 'Achado cadastrado com sucesso!', achado });
   } catch (erro) {
@@ -201,6 +203,8 @@ router.put('/:id', (req, res) => {
     }
 
     const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(req.params.id);
+    semelhantes.removerEmbedding(existente.id); // texto mudou: o vetor antigo ficou obsoleto
+    semelhantes.atualizarEmbeddingEmSegundoPlano(existente.id);
 
     return res.status(200).json({ sucesso: true, mensagem: 'Achado atualizado com sucesso!', achado });
   } catch (erro) {
@@ -263,6 +267,8 @@ router.post('/:id/desfazer', (req, res) => {
     }
 
     const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(existente.id);
+    semelhantes.removerEmbedding(existente.id); // texto mudou: o vetor antigo ficou obsoleto
+    semelhantes.atualizarEmbeddingEmSegundoPlano(existente.id);
     return res.status(200).json({ sucesso: true, mensagem: 'Última edição desfeita com sucesso!', achado });
   } catch (erro) {
     console.error('Erro ao desfazer edição:', erro);
@@ -278,6 +284,7 @@ router.delete('/:id', (req, res) => {
     // Exclusão lógica: o registro é preservado, apenas marcado como excluído
     db.prepare("UPDATE achados SET excluido_em = datetime('now') WHERE id = ?").run(req.params.id);
     auditoria.registrar({ usuarioId: req.usuario.id, acao: 'excluir', entidadeId: existente.id, antes: auditoria.estadoAchado(existente), depois: { excluido: true } });
+    semelhantes.removerEmbedding(existente.id);
     return res.status(200).json({ sucesso: true, mensagem: 'Achado excluído com sucesso!' });
   } catch (erro) {
     console.error('Erro ao excluir achado:', erro);

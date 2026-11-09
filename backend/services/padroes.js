@@ -102,4 +102,4 @@ function validarAnalise(texto, fatos) {
   return { interpretado: true, descartadas, linhas, analise: linhas.join('\n') };
 }
 
-module.exports = { montarFatos, validarAnalise, MSG_SEM_INTERPRETACAO };
+module.exports = { numeros, montarFatos, validarAnalise, MSG_SEM_INTERPRETACAO };

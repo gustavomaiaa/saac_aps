@@ -3,6 +3,8 @@
 process.env.SAAC_DB_PATH = ':memory:';
 process.env.JWT_SECRET = 'segredo_de_teste';
 process.env.OLLAMA_TIMEOUT_MS = process.env.OLLAMA_TIMEOUT_MS || '2000';
+// Nunca falar com o Ollama real nos testes: por padrão aponta para uma porta sem ninguém escutando
+process.env.OLLAMA_URL = 'http://127.0.0.1:1';
 
 const app = require('../server');
 const db = require('../db');

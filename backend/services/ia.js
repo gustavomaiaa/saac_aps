@@ -34,18 +34,18 @@ async function requisitar(caminho, opcoes, timeoutMs, lerCorpo) {
   }
 }
 
-// Gera texto a partir de um prompt. Devolve { texto, modelo, tempo_ms }.
-// Erros: 503 (Ollama fora do ar ou modelo ausente), 504 (timeout), 502 (resposta vazia/invalida).
-async function gerar(prompt, opcoes = {}) {
-  const { modelo, timeoutMs } = configuracao();
-  const inicio = Date.now();
+// POST JSON ao Ollama com tratamento padrão de erros:
+// 503 (Ollama fora do ar ou modelo ausente), 504 (timeout), 502 (erro interno do Ollama).
+// Devolve o corpo JSON (ou null se ilegível).
+async function postarJson(caminho, payload, mensagemModeloAusente) {
+  const { timeoutMs } = configuracao();
   let resposta;
   let corpo;
   try {
-    ({ resposta, corpo } = await requisitar('/api/generate', {
+    ({ resposta, corpo } = await requisitar(caminho, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: modelo, prompt, stream: false, options: { temperature: opcoes.temperature ?? 0.3, ...(opcoes.num_predict ? { num_predict: opcoes.num_predict } : {}) } }),
+      body: JSON.stringify(payload),
     }, timeoutMs, async (r) => {
       const texto = await r.text();
       try { return JSON.parse(texto); } catch (e) { return null; }
@@ -56,14 +56,47 @@ async function gerar(prompt, opcoes = {}) {
     }
     throw new ErroIA(MSG_INDISPONIVEL, 503);
   }
-
-  if (resposta.status === 404) throw new ErroIA(`${MSG_INDISPONIVEL} (modelo "${modelo}" não instalado: ollama pull ${modelo})`, 503);
+  if (resposta.status === 404) throw new ErroIA(mensagemModeloAusente, 503);
   if (!resposta.ok) throw new ErroIA('A IA local retornou um erro ao processar a solicitação.', 502);
+  return corpo;
+}
+
+// Gera texto a partir de um prompt. Devolve { texto, modelo, tempo_ms }.
+// opcoes: temperature, num_predict e json (pede saída em JSON ao Ollama).
+// Erros: 503 (Ollama fora do ar ou modelo ausente), 504 (timeout), 502 (resposta vazia/invalida).
+async function gerar(prompt, opcoes = {}) {
+  const { modelo } = configuracao();
+  const inicio = Date.now();
+  const corpo = await postarJson('/api/generate', {
+    model: modelo,
+    prompt,
+    stream: false,
+    ...(opcoes.json ? { format: 'json' } : {}),
+    options: { temperature: opcoes.temperature ?? 0.3, ...(opcoes.num_predict ? { num_predict: opcoes.num_predict } : {}) },
+  }, `${MSG_INDISPONIVEL} (modelo "${modelo}" não instalado: ollama pull ${modelo})`);
 
   const texto = corpo && typeof corpo.response === 'string' ? corpo.response.trim() : '';
   if (!texto) throw new ErroIA('A IA local retornou uma resposta vazia. Tente novamente.', 502);
 
   return { texto, modelo: (corpo && corpo.model) || modelo, tempo_ms: Date.now() - inicio };
+}
+
+// Gera o embedding (vetor numérico) de um texto com o modelo de embeddings (padrão nomic-embed-text).
+// Devolve { vetor, modelo, tempo_ms }. Mesmos erros de gerar(); modelo ausente => 503 com instrução.
+async function embedding(texto) {
+  const modelo = modeloEmbedding();
+  const inicio = Date.now();
+  const corpo = await postarJson('/api/embed', { model: modelo, input: texto },
+    `Modelo de embeddings "${modelo}" não instalado. Execute: ollama pull ${modelo}`);
+  const vetor = corpo && Array.isArray(corpo.embeddings) ? corpo.embeddings[0] : null;
+  if (!Array.isArray(vetor) || vetor.length === 0 || !vetor.every((n) => typeof n === 'number' && Number.isFinite(n))) {
+    throw new ErroIA('A IA local retornou um embedding inválido. Tente novamente.', 502);
+  }
+  return { vetor, modelo, tempo_ms: Date.now() - inicio };
+}
+
+function modeloEmbedding() {
+  return process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text';
 }
 
 // Informa se o Ollama responde e se o modelo configurado esta instalado.
@@ -78,11 +111,13 @@ async function status() {
       disponivel: true,
       modelo,
       modelo_instalado: instalado,
+      modelo_embedding: modeloEmbedding(),
+      embedding_instalado: instalados.some((n) => n === modeloEmbedding() || n === `${modeloEmbedding()}:latest`),
       url,
       mensagem: instalado ? 'IA local pronta para uso.' : `Ollama em execução, mas o modelo "${modelo}" não está instalado (ollama pull ${modelo}).`,
     };
   } catch (erro) {
-    return { disponivel: false, modelo, modelo_instalado: false, url, mensagem: MSG_INDISPONIVEL };
+    return { disponivel: false, modelo, modelo_instalado: false, modelo_embedding: modeloEmbedding(), embedding_instalado: false, url, mensagem: MSG_INDISPONIVEL };
   }
 }
 
@@ -117,4 +152,18 @@ function promptPadroes(fatos) {
   ].join('\n');
 }
 
-module.exports = { gerar, status, promptRecomendacao, promptPadroes, ErroIA, MSG_INDISPONIVEL };
+// Pede a severidade em JSON. A rota valida o resultado (valor permitido, justificativa curta e sem referências inventadas).
+function promptSeveridade(titulo, descricao) {
+  return [
+    'Você é um auditor sênior de controle interno e conformidade no setor público.',
+    'Classifique a severidade do achado de auditoria abaixo usando EXATAMENTE um destes valores: "Crítico", "Alto", "Médio" ou "Baixo".',
+    'Critérios: Crítico = risco grave de dano ao erário, fraude ou ilegalidade evidente; Alto = falha relevante de controle com impacto significativo; Médio = falha de controle com impacto moderado; Baixo = falha formal ou de baixo impacto.',
+    'Responda SOMENTE com JSON no formato {"severidade": "<um dos quatro valores>", "justificativa": "<no máximo 2 frases curtas>"}.',
+    'A justificativa deve usar apenas o que está escrito no achado: não cite leis, decretos, artigos, normas nem números que não apareçam no texto abaixo.',
+    '',
+    `Título: ${titulo}`,
+    `Descrição: ${descricao}`,
+  ].join('\n');
+}
+
+module.exports = { promptSeveridade, gerar, embedding, modeloEmbedding, status, promptRecomendacao, promptPadroes, ErroIA, MSG_INDISPONIVEL };

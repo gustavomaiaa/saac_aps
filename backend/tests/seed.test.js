@@ -8,7 +8,7 @@ const { DatabaseSync } = require('node:sqlite');
 
 test('seed cria 1 admin, 4 órgãos e 12 achados (e é idempotente)', () => {
   const arquivo = path.join(os.tmpdir(), `saac_seed_${process.pid}.db`);
-  const env = { ...process.env, SAAC_DB_PATH: arquivo };
+  const env = { ...process.env, SAAC_DB_PATH: arquivo, OLLAMA_URL: 'http://127.0.0.1:1' }; // sem Ollama real
   try {
     execFileSync(process.execPath, [path.join(__dirname, '..', 'seed.js')], { env });
     execFileSync(process.execPath, [path.join(__dirname, '..', 'seed.js')], { env }); // 2ª execução não duplica

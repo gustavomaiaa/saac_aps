@@ -4,6 +4,7 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const db = require('./db');
+const semelhantes = require('./services/semelhantes');
 
 const EMAIL_DEMO = 'admin@saac.demo';
 const SENHA_DEMO = 'admin123';
@@ -62,3 +63,9 @@ try {
 
 console.log('✅ Dados de demonstração criados: 1 usuário admin, 4 órgãos e 12 achados.');
 console.log(`   Login: ${EMAIL_DEMO}  |  Senha: ${SENHA_DEMO}`);
+
+// Embeddings para "achados semelhantes" (opcional: exige Ollama + nomic-embed-text)
+semelhantes.reindexar().then((r) => {
+  if (r.erro) console.log(`ℹ️  Embeddings não gerados (${r.erro}). Depois de iniciar o Ollama, rode: npm run embeddings`);
+  else console.log(`✅ Embeddings gerados para ${r.gerados} achados.`);
+});

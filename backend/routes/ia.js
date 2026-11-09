@@ -4,6 +4,7 @@ const db = require('../db');
 const autenticarToken = require('../middleware/auth');
 const ia = require('../services/ia');
 const padroes = require('../services/padroes');
+const semelhantes = require('../services/semelhantes');
 
 const router = express.Router();
 router.use(autenticarToken);
@@ -63,6 +64,78 @@ router.post('/recomendacao', async (req, res) => {
     });
   } catch (erro) {
     return responderErro(res, erro, 'recomendação');
+  }
+});
+
+// --- Severidade sugerida ---
+
+// Extrai {severidade, justificativa} do texto do modelo com parse seguro; null se inválido
+function interpretarSeveridade(texto, textoDoAchado) {
+  let obj = null;
+  try { obj = JSON.parse(texto); } catch (e) {
+    const trecho = texto.match(/\{[\s\S]*\}/);
+    if (trecho) { try { obj = JSON.parse(trecho[0]); } catch (e2) { obj = null; } }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  const severidade = typeof obj.severidade === 'string' ? obj.severidade.trim() : '';
+  if (!SEVERIDADES_VALIDAS.includes(severidade)) return null;
+
+  // Justificativa: no máximo 2 frases, sem leis/artigos e sem números ausentes do texto do achado
+  let justificativa = typeof obj.justificativa === 'string' ? obj.justificativa.trim() : '';
+  justificativa = justificativa.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
+  const citaReferencia = /\b(leis?|artigos?|art\.|decretos?|incisos?|parágrafos?|normas?|resoluç(ão|ões)|portarias?)\b|§/i.test(justificativa);
+  const permitidos = new Set(padroes.numeros(textoDoAchado));
+  const numeroInventado = padroes.numeros(justificativa).some((n) => !permitidos.has(n));
+  if (citaReferencia || numeroInventado) {
+    justificativa = 'Justificativa omitida: o modelo citou referências ou números ausentes do texto do achado.';
+  } else if (!justificativa) {
+    justificativa = 'O modelo não apresentou justificativa.';
+  }
+  return { severidade, justificativa };
+}
+
+router.post('/severidade', async (req, res) => {
+  const { titulo, descricao } = req.body || {};
+  if (!titulo || !descricao || typeof titulo !== 'string' || typeof descricao !== 'string') {
+    return res.status(400).json({ sucesso: false, erro: 'Título e descrição são obrigatórios.' });
+  }
+  if (titulo.length > 200 || descricao.length > 4000) {
+    return res.status(400).json({ sucesso: false, erro: 'Texto muito longo para a IA (título até 200 e descrição até 4000 caracteres).' });
+  }
+  const base_utilizada = { titulo: titulo.trim(), descricao: descricao.trim() };
+  try {
+    const r = await ia.gerar(ia.promptSeveridade(base_utilizada.titulo, base_utilizada.descricao),
+      { temperature: 0.2, num_predict: 200, json: true });
+    const resultado = interpretarSeveridade(r.texto, `${base_utilizada.titulo} ${base_utilizada.descricao}`);
+    if (!resultado) {
+      return res.status(502).json({
+        sucesso: false,
+        erro: `A IA devolveu uma severidade inválida (esperado: ${SEVERIDADES_VALIDAS.join(', ')}). Escolha a severidade manualmente.`,
+      });
+    }
+    const usoId = registrarUso({ usuarioId: req.usuario.id, tipo: 'severidade', modelo: r.modelo, tempoMs: r.tempo_ms });
+    return res.status(200).json({
+      sucesso: true, ...resultado, modelo: r.modelo, tempo_ms: r.tempo_ms, base_utilizada, uso_id: usoId,
+    });
+  } catch (erro) {
+    return responderErro(res, erro, 'severidade sugerida');
+  }
+});
+
+// --- Achados semelhantes (embeddings + cosseno) ---
+router.get('/semelhantes', async (req, res) => {
+  const { titulo, descricao, orgao_id, excluir_id } = req.query;
+  if (!titulo || !descricao) {
+    return res.status(400).json({ sucesso: false, erro: 'Título e descrição são obrigatórios.' });
+  }
+  if (String(titulo).length > 200 || String(descricao).length > 4000) {
+    return res.status(400).json({ sucesso: false, erro: 'Texto muito longo para a IA (título até 200 e descrição até 4000 caracteres).' });
+  }
+  try {
+    const r = await semelhantes.buscarSemelhantes(titulo, descricao, { orgaoId: orgao_id, excluirId: excluir_id });
+    return res.status(200).json({ sucesso: true, modelo: ia.modeloEmbedding(), ...r });
+  } catch (erro) {
+    return responderErro(res, erro, 'achados semelhantes');
   }
 });
 
@@ -145,6 +218,8 @@ router.get('/metricas', (req, res) => {
               COALESCE(SUM(resultado = 'pendente'), 0) AS pendentes
        FROM ia_uso`
     ).get();
+    const por_tipo = { recomendacao: 0, padroes: 0, severidade: 0 };
+    db.prepare('SELECT tipo, COUNT(*) AS total FROM ia_uso GROUP BY tipo').all().forEach((l) => { por_tipo[l.tipo] = l.total; });
     const decididas = m.aceitas + m.descartadas;
     return res.status(200).json({
       sucesso: true,
@@ -153,6 +228,7 @@ router.get('/metricas', (req, res) => {
       aceitas: m.aceitas,
       descartadas: m.descartadas,
       pendentes: m.pendentes,
+      por_tipo,
       // taxa sobre as sugestões em que o auditor decidiu (aceitou ou descartou); null se ainda nao ha decisoes
       taxa_aceitacao: decididas > 0 ? Math.round((m.aceitas / decididas) * 100) : null,
     });

@@ -86,7 +86,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS ia_uso (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     usuario_id INTEGER NOT NULL,
-    tipo TEXT NOT NULL CHECK (tipo IN ('recomendacao', 'padroes')),
+    tipo TEXT NOT NULL CHECK (tipo IN ('recomendacao', 'padroes', 'severidade')),
     achado_id INTEGER,
     modelo TEXT NOT NULL,
     tempo_ms INTEGER NOT NULL,
@@ -109,6 +109,47 @@ db.exec(`
     usuario_id INTEGER NOT NULL,
     FOREIGN KEY (achado_id) REFERENCES achados(id),
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  );
+`);
+
+// Migracao: bancos criados antes do recurso "severidade sugerida" tem um CHECK que nao aceita o
+// novo tipo. SQLite nao altera CHECK, entao a tabela e recriada (dados preservados, idempotente).
+if (!db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ia_uso'").get().sql.includes("'severidade'")) {
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      CREATE TABLE ia_uso_nova (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        usuario_id INTEGER NOT NULL,
+        tipo TEXT NOT NULL CHECK (tipo IN ('recomendacao', 'padroes', 'severidade')),
+        achado_id INTEGER,
+        modelo TEXT NOT NULL,
+        tempo_ms INTEGER NOT NULL,
+        resultado TEXT NOT NULL DEFAULT 'pendente' CHECK (resultado IN ('aceita', 'descartada', 'pendente')),
+        criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+        FOREIGN KEY (achado_id) REFERENCES achados(id)
+      );
+    `);
+    db.exec(`INSERT INTO ia_uso_nova (id, usuario_id, tipo, achado_id, modelo, tempo_ms, resultado, criado_em)
+             SELECT id, usuario_id, tipo, achado_id, modelo, tempo_ms, resultado, criado_em FROM ia_uso;`);
+    db.exec('DROP TABLE ia_uso;');
+    db.exec('ALTER TABLE ia_uso_nova RENAME TO ia_uso;');
+    db.exec('COMMIT');
+  } catch (erro) {
+    db.exec('ROLLBACK');
+    throw erro;
+  }
+}
+
+// --- Achados semelhantes: embedding (vetor em JSON) de cada achado ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS achados_embedding (
+    achado_id INTEGER PRIMARY KEY,
+    vetor TEXT NOT NULL,
+    modelo TEXT NOT NULL,
+    atualizado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (achado_id) REFERENCES achados(id)
   );
 `);
 
