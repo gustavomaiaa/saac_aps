@@ -74,6 +74,13 @@ análise de padrões ter o que mostrar). Rodar o seed de novo não duplica nada.
 | Recomendação automática | Título, descrição, severidade e nome/tipo do órgão **do achado em edição** | Dados de usuários, e-mails, senhas, outros achados, histórico |
 | Análise de padrões | Apenas **estatísticas agregadas** calculadas por SQL (achados por severidade, por tipo de órgão, órgãos com 3+ achados, total por mês) | Títulos, descrições, nomes de pessoas ou qualquer texto individual dos achados |
 
+**Como a análise de padrões evita erros de comparação:** os números são comparados em JavaScript (`services/padroes.js`),
+que gera *fatos numerados* já interpretados (ex.: "2. A severidade mais frequente é Alto, com 5 de 12 achados (42%).").
+O modelo (temperature 0.2, `num_predict` 400) só redige observações sobre esses fatos. Cada linha da resposta é validada:
+números que não constam dos fatos, fatos inexistentes ou linhas cortadas são **descartadas**; se sobrarem menos de 2 linhas
+válidas, o sistema mostra só os fatos e a mensagem "A IA não conseguiu interpretar com segurança; veja os fatos acima."
+A recomendação automática proíbe citar leis, artigos e números que não estejam no achado enviado.
+
 Toda resposta de IA exibida na tela mostra o **modelo**, o **tempo de resposta** e a **base utilizada**
 (os campos exatamente enviados ao modelo). Cada uso é registrado na tabela `ia_uso`, e o dashboard exibe as
 *Métricas da IA* (total de usos, tempo médio e taxa de aceitação).

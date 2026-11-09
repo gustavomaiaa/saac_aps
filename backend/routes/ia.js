@@ -3,6 +3,7 @@ const express = require('express');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
 const ia = require('../services/ia');
+const padroes = require('../services/padroes');
 
 const router = express.Router();
 router.use(autenticarToken);
@@ -71,6 +72,7 @@ function calcularEstatisticas() {
   const total = db.prepare('SELECT COUNT(*) AS total FROM vw_achados_detalhados').get().total;
   return {
     total_achados: total,
+    em_aberto: db.prepare("SELECT COUNT(*) AS total FROM vw_achados_detalhados WHERE status = 'Em aberto'").get().total,
     por_severidade: mapa(db.prepare(
       'SELECT severidade AS chave, COUNT(*) AS total FROM vw_achados_detalhados GROUP BY severidade ORDER BY total DESC').all()),
     por_tipo_orgao: mapa(db.prepare(
@@ -91,10 +93,22 @@ router.get('/padroes', async (req, res) => {
     if (estatisticas.total_achados === 0) {
       return res.status(400).json({ sucesso: false, erro: 'Não há achados cadastrados para analisar.' });
     }
-    const r = await ia.gerar(ia.promptPadroes(estatisticas));
+    // Os fatos (comparações, rankings, percentuais) são calculados aqui, não pelo modelo
+    const fatos = padroes.montarFatos(estatisticas);
+    const r = await ia.gerar(ia.promptPadroes(fatos), { temperature: 0.2, num_predict: 400 });
+    // A resposta só é aceita se citar números presentes nos fatos
+    const validacao = padroes.validarAnalise(r.texto, fatos);
     const usoId = registrarUso({ usuarioId: req.usuario.id, tipo: 'padroes', modelo: r.modelo, tempoMs: r.tempo_ms });
     return res.status(200).json({
-      sucesso: true, estatisticas, analise: r.texto, modelo: r.modelo, tempo_ms: r.tempo_ms, uso_id: usoId,
+      sucesso: true,
+      estatisticas,
+      fatos,
+      analise: validacao.analise,
+      interpretado: validacao.interpretado,
+      linhas_descartadas: validacao.descartadas,
+      modelo: r.modelo,
+      tempo_ms: r.tempo_ms,
+      uso_id: usoId,
     });
   } catch (erro) {
     return responderErro(res, erro, 'análise de padrões');

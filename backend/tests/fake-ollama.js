@@ -3,7 +3,7 @@ const http = require('node:http');
 
 // estado.modo: 'ok' | 'vazio' | 'lento' | 'sem-modelo' | 'erro'
 function criar() {
-  const estado = { modo: 'ok', atrasoMs: 1500, requisicoes: [] };
+  const estado = { resposta: null, modo: 'ok', atrasoMs: 1500, requisicoes: [] };
   const servidor = http.createServer((req, res) => {
     let corpo = '';
     req.on('data', (c) => { corpo += c; });
@@ -25,7 +25,7 @@ function criar() {
         if (estado.modo === 'lento') {
           return setTimeout(() => responder(200, { model: json.model, response: 'tarde demais' }), estado.atrasoMs);
         }
-        return responder(200, { model: json.model, response: 'Recomendação de teste: revisar os controles internos e formalizar o processo.' });
+        return responder(200, { model: json.model, response: estado.resposta || 'Recomendação de teste: revisar os controles internos e formalizar o processo.' });
       }
       return responder(404, { error: 'rota desconhecida' });
     });

@@ -36,7 +36,7 @@ async function requisitar(caminho, opcoes, timeoutMs, lerCorpo) {
 
 // Gera texto a partir de um prompt. Devolve { texto, modelo, tempo_ms }.
 // Erros: 503 (Ollama fora do ar ou modelo ausente), 504 (timeout), 502 (resposta vazia/invalida).
-async function gerar(prompt) {
+async function gerar(prompt, opcoes = {}) {
   const { modelo, timeoutMs } = configuracao();
   const inicio = Date.now();
   let resposta;
@@ -45,7 +45,7 @@ async function gerar(prompt) {
     ({ resposta, corpo } = await requisitar('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: modelo, prompt, stream: false, options: { temperature: 0.3 } }),
+      body: JSON.stringify({ model: modelo, prompt, stream: false, options: { temperature: opcoes.temperature ?? 0.3, ...(opcoes.num_predict ? { num_predict: opcoes.num_predict } : {}) } }),
     }, timeoutMs, async (r) => {
       const texto = await r.text();
       try { return JSON.parse(texto); } catch (e) { return null; }
@@ -93,7 +93,8 @@ function promptRecomendacao(base) {
   return [
     'Você é um auditor sênior de controle interno e conformidade no setor público.',
     'Com base apenas no achado de auditoria abaixo, escreva uma recomendação objetiva de até 4 frases, em português, com tom técnico.',
-    'Não invente leis, normas, artigos, valores, prazos ou números que não constem do achado. Responda somente com o texto da recomendação.',
+    'REGRAS: não cite leis, decretos, normas, artigos ou números de qualquer tipo (valores, prazos, percentuais, datas) que não estejam escritos no achado abaixo; não invente fatos, causas ou nomes. Se precisar de referência, use termos genéricos como "a legislação aplicável".',
+    'Responda somente com o texto da recomendação.',
     '',
     `Órgão: ${base.orgao_nome} (${base.orgao_tipo || 'tipo não informado'})`,
     `Severidade: ${base.severidade}`,
@@ -102,22 +103,17 @@ function promptRecomendacao(base) {
   ].join('\n');
 }
 
-function promptPadroes(estatisticas) {
-  const linhas = (obj) => Object.entries(obj).map(([k, v]) => `- ${k}: ${v}`).join('\n') || '- (sem dados)';
-  const reincidentes = estatisticas.orgaos_reincidentes.length
-    ? estatisticas.orgaos_reincidentes.map((o) => `- ${o.nome} (${o.tipo}): ${o.total} achados`).join('\n')
-    : '- (nenhum órgão com 3 ou mais achados)';
+// fatos: lista de frases já interpretadas (ver services/padroes.js)
+function promptPadroes(fatos) {
   return [
     'Você é um auditor sênior de controle interno e conformidade no setor público.',
-    'Abaixo estão estatísticas calculadas a partir dos achados de auditoria cadastrados. Use SOMENTE estes números.',
-    'Escreva de 3 a 5 observações objetivas sobre os padrões que você identifica (uma por linha, iniciando com "- ") e, ao final, uma linha começando com "Ação prioritária:" com uma única ação recomendada.',
-    'Em português, tom técnico, sem inventar dados, leis ou números que não estejam abaixo.',
+    'Use SOMENTE os fatos numerados abaixo. Não compare números por conta própria, não invente causas, leis, valores nem órgãos.',
+    'Escreva de 3 a 5 observações curtas, uma por linha, cada uma começando com o número do fato em que se baseia (exemplo: "2. ..."), e termine com uma "Ação prioritária:" de uma frase.',
+    'Não numere a lista por conta própria (use apenas o número do fato), não copie o fato inteiro e use no máximo 25 palavras por observação.',
+    'Em português, tom técnico.',
     '',
-    `Total de achados: ${estatisticas.total_achados}`,
-    'Achados por severidade:', linhas(estatisticas.por_severidade),
-    'Achados por tipo de órgão:', linhas(estatisticas.por_tipo_orgao),
-    'Órgãos reincidentes (3 ou mais achados):', reincidentes,
-    'Achados cadastrados por mês (AAAA-MM):', linhas(estatisticas.por_mes),
+    'FATOS:',
+    ...fatos.map((f, i) => `${i + 1}. ${f}`),
   ].join('\n');
 }
 

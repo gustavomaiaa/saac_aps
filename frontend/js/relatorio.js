@@ -34,6 +34,7 @@ function renderizarPadroes() {
   alvo.innerHTML = `
     <p class="ia-aviso">⚠️ Análise gerada por IA, revise antes de usar.</p>
     <p class="ia-meta">Modelo: ${esc(dados.modelo)} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s</p>
+    <ol class="ia-base">${(dados.fatos || []).map((f) => `<li>${esc(f)}</li>`).join('')}</ol>
     <div class="texto-ia">${esc(dados.analise)}</div>`;
 }
 
