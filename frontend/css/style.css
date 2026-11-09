@@ -126,3 +126,32 @@ label.campo-label { display: block; font-size: 13px; font-weight: 600; margin: 1
 .modal-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 .modal-confirmacao p { font-size: 14px; color: var(--texto); line-height: 1.5; }
 .modal-confirmacao .aviso { color: var(--vermelho); font-size: 12.5px; margin-top: 6px; }
+
+/* --- Sprint V: dashboard, paginação, utilidades --- */
+a.btn { display: inline-block; text-decoration: none; padding: 9px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 600; }
+a.btn-principal { background: var(--azul-claro); color: #fff; }
+a.btn-principal:hover { background: var(--azul-escuro); }
+.grupo-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.painel { background: #fff; border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.painel h3 { margin: 0 0 14px; font-size: 15px; color: var(--azul-escuro); }
+.grade-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cards-totais { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.card-total { background: #fff; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-left: 4px solid var(--azul-claro); }
+.card-total span { font-size: 28px; font-weight: 700; color: var(--azul-escuro); }
+.card-total p { margin: 2px 0 0; font-size: 12.5px; color: #6b7280; }
+.card-total.sev-critico { border-left-color: var(--vermelho); }
+.barra-linha { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 13px; }
+.barra-rotulo { width: 140px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barra-trilho { flex: 1; background: #eef0f3; border-radius: 6px; height: 16px; overflow: hidden; }
+.barra-preenchimento { height: 100%; border-radius: 6px; min-width: 3px; transition: width 0.4s; }
+.barra-valor { width: 32px; text-align: right; font-weight: 600; }
+.paginacao { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px; font-size: 13px; color: #6b7280; }
+.rodape-ia { margin-top: 28px; font-size: 11.5px; color: #9ca3af; text-align: center; }
+@media (max-width: 760px) {
+  .grade-2 { grid-template-columns: 1fr; }
+  header.topo { padding: 12px 16px; }
+  main.conteudo { padding: 20px 12px 48px; }
+  .tabela-wrapper { overflow-x: auto; }
+  table { min-width: 640px; }
+  .barra-rotulo { width: 100px; }
+}
