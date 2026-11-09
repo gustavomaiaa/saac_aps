@@ -10,10 +10,13 @@ const formTitulo = document.getElementById('form-titulo');
 const alertaForm = document.getElementById('alerta-form');
 
 async function carregarOrgaos() {
+  vazio.style.display = 'block';
+  vazio.textContent = 'Carregando órgãos...';
   try {
     const { ok, dados } = await api('/orgaos');
     if (!ok) throw new Error(dados.erro);
     tbody.innerHTML = '';
+    vazio.textContent = 'Nenhum órgão cadastrado ainda.';
     vazio.style.display = dados.orgaos.length === 0 ? 'block' : 'none';
     dados.orgaos.forEach((orgao) => {
       const tr = document.createElement('tr');
@@ -34,6 +37,10 @@ async function carregarOrgaos() {
     });
   } catch (erro) {
     console.error('Erro ao carregar órgãos:', erro);
+    tbody.innerHTML = '';
+    vazio.style.display = 'block';
+    vazio.textContent = erro instanceof TypeError
+      ? 'Erro de conexão com o servidor. Verifique se o backend está rodando.' : (erro.message || 'Não foi possível carregar os órgãos.');
   }
 }
 
