@@ -157,3 +157,22 @@ a.btn-principal:hover { background: var(--azul-escuro); }
 }
 
 .filtros .campo-busca { flex: 1; min-width: 200px; }
+
+/* --- IA local --- */
+.linha-rotulo { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.linha-rotulo label { margin: 0; }
+.ia-box { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 12.5px; }
+.ia-box p { margin: 4px 0; }
+.ia-aviso { color: #5b21b6; font-weight: 600; }
+.ia-meta { color: #6b7280; }
+.ia-erro { color: #991b1b; }
+.ia-base summary { cursor: pointer; color: #6b7280; }
+.ia-base ul { margin: 6px 0 0; padding-left: 18px; color: #4b5563; }
+.ia-acoes { display: flex; gap: 8px; margin-top: 8px; }
+.ia-decisao { font-weight: 600; color: #166534; }
+.modal { max-height: 92vh; overflow-y: auto; }
+.texto-ia { white-space: pre-wrap; line-height: 1.5; font-size: 13.5px; }
+.estatisticas-ia { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 10px 0; }
+.estatisticas-ia div { background: var(--cinza-fundo); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; }
+.estatisticas-ia b { display: block; color: var(--azul-escuro); margin-bottom: 3px; }
+.metricas-ia { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }

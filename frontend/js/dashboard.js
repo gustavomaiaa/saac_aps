@@ -51,6 +51,59 @@ async function carregarUsuario() {
   }
 }
 
+// --- IA local: análise de padrões e métricas ---
+function listaObj(obj) {
+  const itens = Object.entries(obj);
+  return itens.length ? itens.map(([k, v]) => `${esc(k)}: ${v}`).join('<br>') : '—';
+}
+
+async function carregarMetricas() {
+  const alvo = document.getElementById('metricas-ia');
+  try {
+    const { ok, dados } = await api('/ia/metricas');
+    if (!ok) throw new Error(dados.erro);
+    const taxa = dados.taxa_aceitacao === null ? '—' : `${dados.taxa_aceitacao}%`;
+    alvo.innerHTML = `
+      <div class="card-total"><span>${dados.total_usos}</span><p>Usos da IA</p></div>
+      <div class="card-total"><span>${dados.total_usos ? (dados.tempo_medio_ms / 1000).toFixed(1) + 's' : '—'}</span><p>Tempo médio</p></div>
+      <div class="card-total"><span>${taxa}</span><p>Taxa de aceitação (${dados.aceitas} aceitas / ${dados.descartadas} descartadas)</p></div>`;
+  } catch (e) {
+    alvo.innerHTML = '<div class="vazio">Não foi possível carregar as métricas.</div>';
+  }
+}
+
+document.getElementById('btn-analisar').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-analisar');
+  const erroEl = document.getElementById('padroes-erro');
+  erroEl.style.display = 'none';
+  document.getElementById('padroes-resultado').style.display = 'none';
+  document.getElementById('padroes-carregando').style.display = 'block';
+  btn.disabled = true;
+  try {
+    const { ok, dados } = await api('/ia/padroes');
+    if (!ok) throw new Error(dados.erro || 'Não foi possível analisar os padrões.');
+    const e = dados.estatisticas;
+    document.getElementById('padroes-meta').textContent = `Modelo: ${dados.modelo} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s`;
+    document.getElementById('padroes-estatisticas').innerHTML = `
+      <div><b>Total de achados</b>${e.total_achados}</div>
+      <div><b>Por severidade</b>${listaObj(e.por_severidade)}</div>
+      <div><b>Por tipo de órgão</b>${listaObj(e.por_tipo_orgao)}</div>
+      <div><b>Órgãos reincidentes (3+)</b>${e.orgaos_reincidentes.length ? e.orgaos_reincidentes.map((o) => `${esc(o.nome)}: ${o.total}`).join('<br>') : '—'}</div>
+      <div><b>Por mês</b>${listaObj(e.por_mes)}</div>`;
+    document.getElementById('padroes-texto').textContent = dados.analise;
+    document.getElementById('padroes-resultado').style.display = 'block';
+    try { sessionStorage.setItem('saac_padroes', JSON.stringify(dados)); } catch (err) { /* opcional (usado no relatório) */ }
+    carregarMetricas();
+  } catch (erro) {
+    erroEl.style.display = 'block';
+    erroEl.textContent = erro instanceof TypeError ? 'Erro de conexão com o servidor. Verifique se o backend está rodando.' : erro.message;
+  } finally {
+    document.getElementById('padroes-carregando').style.display = 'none';
+    btn.disabled = false;
+  }
+});
+
 obterToken();
+carregarMetricas();
 carregarUsuario().catch(() => { document.getElementById('boas-vindas').textContent = 'Erro ao verificar sessão.'; });
 carregarDashboard();

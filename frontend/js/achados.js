@@ -108,6 +108,8 @@ function limparFormulario() {
   document.getElementById('achado-orgao').value = '';
   document.getElementById('achado-severidade').value = '';
   document.getElementById('achado-status').value = 'Em aberto';
+  document.getElementById('achado-recomendacao').value = '';
+  resetarIA();
   ['titulo', 'descricao', 'orgao', 'severidade'].forEach((c) => { document.getElementById(`erro-${c}`).textContent = ''; });
   alertaForm.className = 'alerta';
   alertaForm.textContent = '';
@@ -130,6 +132,7 @@ function abrirFormEdicao(id, achados) {
   document.getElementById('achado-orgao').value = achado.orgao_id;
   document.getElementById('achado-severidade').value = achado.severidade;
   document.getElementById('achado-status').value = achado.status;
+  document.getElementById('achado-recomendacao').value = achado.recomendacao || '';
   overlayForm.classList.add('aberto');
 }
 
@@ -165,6 +168,7 @@ formAchado.addEventListener('submit', async (e) => {
   const orgao_id = document.getElementById('achado-orgao').value;
   const severidade = document.getElementById('achado-severidade').value;
   const status = document.getElementById('achado-status').value;
+  const recomendacao = document.getElementById('achado-recomendacao').value.trim();
 
   let valido = true;
   ['titulo', 'descricao', 'orgao', 'severidade'].forEach((c) => { document.getElementById(`erro-${c}`).textContent = ''; });
@@ -183,7 +187,7 @@ formAchado.addEventListener('submit', async (e) => {
     const metodo = id ? 'PUT' : 'POST';
     const resposta = await fetch(url, {
       method: metodo, headers: headersAutenticados(),
-      body: JSON.stringify({ titulo, descricao, orgao_id, severidade, status }),
+      body: JSON.stringify({ titulo, descricao, orgao_id, severidade, status, recomendacao }),
     });
     const dados = await resposta.json();
     if (!resposta.ok || !dados.sucesso) {
@@ -225,6 +229,85 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
     btn.textContent = 'Excluir';
   }
 });
+
+// --- IA local: recomendação automática ---
+let usoIaAtual = null;       // id do registro em ia_uso da sugestão exibida
+let textoAntesDaIA = '';     // texto anterior do campo, restaurado ao descartar
+
+function resetarIA() {
+  usoIaAtual = null;
+  ['ia-box', 'ia-carregando', 'ia-erro', 'ia-resultado', 'ia-decisao'].forEach((id) => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById('ia-acoes').style.display = 'flex';
+  document.getElementById('btn-gerar-ia').disabled = false;
+}
+
+async function informarResultadoIA(resultado) {
+  if (!usoIaAtual) return;
+  try { await api(`/ia/uso/${usoIaAtual}/resultado`, { method: 'POST', body: JSON.stringify({ resultado }) }); } catch (e) { console.error(e); }
+}
+
+document.getElementById('btn-gerar-ia').addEventListener('click', async () => {
+  const titulo = document.getElementById('achado-titulo').value.trim();
+  const descricao = document.getElementById('achado-descricao').value.trim();
+  const orgaoId = document.getElementById('achado-orgao').value;
+  const severidade = document.getElementById('achado-severidade').value;
+  const caixa = document.getElementById('ia-box');
+  const erroIA = document.getElementById('ia-erro');
+  resetarIA();
+  caixa.style.display = 'block';
+  if (!titulo || !descricao || !orgaoId || !severidade) {
+    erroIA.style.display = 'block';
+    erroIA.textContent = 'Preencha título, descrição, órgão e severidade antes de gerar a recomendação.';
+    return;
+  }
+  const orgao = cacheOrgaos.find((o) => String(o.id) === String(orgaoId));
+  const btn = document.getElementById('btn-gerar-ia');
+  btn.disabled = true;
+  document.getElementById('ia-carregando').style.display = 'block';
+  try {
+    const idAchado = document.getElementById('achado-id').value;
+    const { ok, dados } = await api('/ia/recomendacao', {
+      method: 'POST',
+      body: JSON.stringify({ titulo, descricao, severidade, orgao_nome: orgao ? orgao.nome : '', orgao_tipo: orgao ? orgao.tipo : '', achado_id: idAchado || undefined }),
+    });
+    document.getElementById('ia-carregando').style.display = 'none';
+    if (!ok) {
+      erroIA.style.display = 'block';
+      erroIA.textContent = dados.erro || 'Não foi possível gerar a recomendação.';
+      return;
+    }
+    const campo = document.getElementById('achado-recomendacao');
+    textoAntesDaIA = campo.value;
+    campo.value = dados.recomendacao;
+    usoIaAtual = dados.uso_id;
+    document.getElementById('ia-meta').textContent = `Modelo: ${dados.modelo} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s`;
+    document.getElementById('ia-base').innerHTML = Object.entries(dados.base_utilizada)
+      .map(([k, v]) => `<li><b>${esc(k)}:</b> ${esc(v ?? '—')}</li>`).join('');
+    document.getElementById('ia-resultado').style.display = 'block';
+  } catch (erro) {
+    document.getElementById('ia-carregando').style.display = 'none';
+    erroIA.style.display = 'block';
+    erroIA.textContent = 'Erro de conexão com o servidor. O restante do formulário continua funcionando.';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function decidirIA(resultado) {
+  informarResultadoIA(resultado);
+  document.getElementById('ia-acoes').style.display = 'none';
+  const decisao = document.getElementById('ia-decisao');
+  decisao.style.display = 'block';
+  if (resultado === 'descartada') {
+    document.getElementById('achado-recomendacao').value = textoAntesDaIA;
+    decisao.textContent = 'Sugestão descartada.';
+  } else {
+    decisao.textContent = 'Sugestão aceita. Revise o texto e salve o achado.';
+  }
+  usoIaAtual = null;
+}
+document.getElementById('btn-ia-aceitar').addEventListener('click', () => decidirIA('aceita'));
+document.getElementById('btn-ia-descartar').addEventListener('click', () => decidirIA('descartada'));
 
 document.getElementById('menu').innerHTML = montarMenu('achados.html');
 obterToken();

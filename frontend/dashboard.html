@@ -37,7 +37,29 @@
         <section class="painel"><h3>Achados por status</h3><div id="barras-status"></div></section>
       </div>
       <section class="painel"><h3>Órgãos com mais achados</h3><div id="barras-orgaos"></div></section>
+
+      <section class="painel" id="painel-padroes">
+        <div class="linha-rotulo" style="margin-top:0;">
+          <h3 style="margin:0;">Análise de padrões <small style="font-weight:400;color:#6b7280;">(IA local)</small></h3>
+          <button class="btn btn-principal btn-pequeno" id="btn-analisar">Analisar</button>
+        </div>
+        <p class="ia-meta">Os números abaixo são calculados por SQL; a IA apenas os interpreta.</p>
+        <div class="ia-carregando" id="padroes-carregando" style="display:none;">⏳ Analisando padrões com a IA local... (pode levar alguns segundos)</div>
+        <div class="ia-erro" id="padroes-erro" style="display:none;"></div>
+        <div id="padroes-resultado" style="display:none;">
+          <p class="ia-aviso">⚠️ Análise gerada por IA, revise antes de usar.</p>
+          <p class="ia-meta" id="padroes-meta"></p>
+          <div class="estatisticas-ia" id="padroes-estatisticas"></div>
+          <div class="texto-ia" id="padroes-texto"></div>
+        </div>
+      </section>
+
+      <section class="painel">
+        <h3>Métricas da IA</h3>
+        <div class="metricas-ia" id="metricas-ia"><div class="vazio">Carregando...</div></div>
+      </section>
     </div>
+    <p class="rodape-ia">Recursos de IA executados localmente (Ollama). Podem conter erros: sempre revise o resultado antes de usar.</p>
   </main>
 
   <script src="js/config.js"></script>

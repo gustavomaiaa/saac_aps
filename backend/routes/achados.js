@@ -11,9 +11,17 @@ const SEVERIDADES_VALIDAS = ['Crítico', 'Alto', 'Médio', 'Baixo'];
 const STATUS_VALIDOS = ['Em aberto', 'Em análise', 'Implementado', 'Rejeitado'];
 function severidadeValida(s) { return SEVERIDADES_VALIDAS.includes(s); }
 function statusValido(s) { return STATUS_VALIDOS.includes(s); }
+const MAX_RECOMENDACAO = 2000;
+// Texto vazio vira NULL; devolve undefined se o campo nao foi enviado
+function normalizarRecomendacao(valor) {
+  if (valor === undefined) return undefined;
+  const texto = valor === null ? '' : String(valor).trim();
+  return texto || null;
+}
 
 router.post('/', (req, res) => {
   const { titulo, descricao, severidade, orgao_id, status } = req.body;
+  const recomendacao = normalizarRecomendacao(req.body.recomendacao);
   if (!titulo || !descricao || !severidade || !orgao_id) {
     return res.status(400).json({ sucesso: false, erro: 'Título, descrição, severidade e órgão são obrigatórios.' });
   }
@@ -26,18 +34,19 @@ router.post('/', (req, res) => {
   if (status && !statusValido(status)) {
     return res.status(400).json({ sucesso: false, erro: `Status inválido. Opções: ${STATUS_VALIDOS.join(', ')}.` });
   }
+  if (recomendacao && recomendacao.length > MAX_RECOMENDACAO) {
+    return res.status(400).json({ sucesso: false, erro: `A recomendação deve ter no máximo ${MAX_RECOMENDACAO} caracteres.` });
+  }
   try {
     const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(orgao_id);
     if (!orgao) return res.status(400).json({ sucesso: false, erro: 'Órgão informado não existe.' });
 
     const resultado = db.prepare(
-      `INSERT INTO achados (titulo, descricao, severidade, status, orgao_id, criado_por_id)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(titulo.trim(), descricao.trim(), severidade, status || 'Em aberto', orgao_id, req.usuario.id);
+      `INSERT INTO achados (titulo, descricao, severidade, status, orgao_id, criado_por_id, recomendacao)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(titulo.trim(), descricao.trim(), severidade, status || 'Em aberto', orgao_id, req.usuario.id, recomendacao ?? null);
 
-    const achado = db.prepare(
-      `SELECT a.*, o.nome AS orgao_nome FROM achados a JOIN orgaos o ON o.id = a.orgao_id WHERE a.id = ?`
-    ).get(resultado.lastInsertRowid);
+    const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(resultado.lastInsertRowid);
 
     return res.status(201).json({ sucesso: true, mensagem: 'Achado cadastrado com sucesso!', achado });
   } catch (erro) {
@@ -95,6 +104,7 @@ router.get('/:id', (req, res) => {
 
 router.put('/:id', (req, res) => {
   const { titulo, descricao, severidade, orgao_id, status } = req.body;
+  const recomendacao = normalizarRecomendacao(req.body.recomendacao);
   if (!titulo || !descricao || !severidade || !orgao_id || !status) {
     return res.status(400).json({ sucesso: false, erro: 'Título, descrição, severidade, órgão e status são obrigatórios.' });
   }
@@ -107,23 +117,23 @@ router.put('/:id', (req, res) => {
   if (!statusValido(status)) {
     return res.status(400).json({ sucesso: false, erro: `Status inválido. Opções: ${STATUS_VALIDOS.join(', ')}.` });
   }
+  if (recomendacao && recomendacao.length > MAX_RECOMENDACAO) {
+    return res.status(400).json({ sucesso: false, erro: `A recomendação deve ter no máximo ${MAX_RECOMENDACAO} caracteres.` });
+  }
   try {
-    const existente = db.prepare('SELECT id FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
+    const existente = db.prepare('SELECT * FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
 
     const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(orgao_id);
     if (!orgao) return res.status(400).json({ sucesso: false, erro: 'Órgão informado não existe.' });
 
     db.prepare(
-      `UPDATE achados SET titulo = ?, descricao = ?, severidade = ?, status = ?, orgao_id = ?, atualizado_em = datetime('now')
+      `UPDATE achados SET titulo = ?, descricao = ?, severidade = ?, status = ?, orgao_id = ?, recomendacao = ?, atualizado_em = datetime('now')
        WHERE id = ?`
-    ).run(titulo.trim(), descricao.trim(), severidade, status, orgao_id, req.params.id);
+    ).run(titulo.trim(), descricao.trim(), severidade, status, orgao_id,
+      recomendacao === undefined ? existente.recomendacao : recomendacao, req.params.id);
 
-    const achado = db.prepare(
-      `SELECT a.*, o.nome AS orgao_nome, u.nome AS criado_por_nome
-       FROM achados a JOIN orgaos o ON o.id = a.orgao_id JOIN usuarios u ON u.id = a.criado_por_id
-       WHERE a.id = ?`
-    ).get(req.params.id);
+    const achado = db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(req.params.id);
 
     return res.status(200).json({ sucesso: true, mensagem: 'Achado atualizado com sucesso!', achado });
   } catch (erro) {

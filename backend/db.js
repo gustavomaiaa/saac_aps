@@ -69,6 +69,25 @@ function adicionarColunaSeNaoExistir(tabela, coluna, definicao) {
 // --- Sprint V: exclusao logica de achados ---
 adicionarColunaSeNaoExistir('achados', 'excluido_em', 'TEXT');
 
+// --- Sprint V: recomendacao da IA (editavel pelo auditor) ---
+adicionarColunaSeNaoExistir('achados', 'recomendacao', 'TEXT');
+
+// --- Sprint V: metricas de uso da IA (explicabilidade) ---
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ia_uso (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL CHECK (tipo IN ('recomendacao', 'padroes')),
+    achado_id INTEGER,
+    modelo TEXT NOT NULL,
+    tempo_ms INTEGER NOT NULL,
+    resultado TEXT NOT NULL DEFAULT 'pendente' CHECK (resultado IN ('aceita', 'descartada', 'pendente')),
+    criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    FOREIGN KEY (achado_id) REFERENCES achados(id)
+  );
+`);
+
 // --- Sprint V: views usadas pelo dashboard e pelas listagens ---
 // Recriadas a cada inicializacao (nao guardam dados, entao e seguro e idempotente).
 db.exec('DROP VIEW IF EXISTS vw_achados_detalhados;');

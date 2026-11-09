@@ -81,6 +81,25 @@
         <select id="achado-status">
           <option>Em aberto</option><option>Em análise</option><option>Implementado</option><option>Rejeitado</option>
         </select>
+        <div class="linha-rotulo">
+          <label class="campo-label" for="achado-recomendacao">Recomendação</label>
+          <button type="button" class="btn btn-secundario btn-pequeno" id="btn-gerar-ia">Gerar com IA</button>
+        </div>
+        <textarea id="achado-recomendacao" placeholder="Recomendação para tratar o achado (opcional)..."></textarea>
+        <div class="ia-box" id="ia-box" style="display:none;">
+          <div class="ia-carregando" id="ia-carregando" style="display:none;">⏳ Gerando recomendação com a IA local... (pode levar alguns segundos)</div>
+          <div class="ia-erro" id="ia-erro" style="display:none;"></div>
+          <div id="ia-resultado" style="display:none;">
+            <p class="ia-aviso">⚠️ Sugestão gerada por IA, revise antes de salvar.</p>
+            <p class="ia-meta" id="ia-meta"></p>
+            <details class="ia-base"><summary>Base utilizada (o que foi enviado ao modelo)</summary><ul id="ia-base"></ul></details>
+            <div class="ia-acoes" id="ia-acoes">
+              <button type="button" class="btn btn-principal btn-pequeno" id="btn-ia-aceitar">Aceitar</button>
+              <button type="button" class="btn btn-secundario btn-pequeno" id="btn-ia-descartar">Descartar</button>
+            </div>
+            <p class="ia-decisao" id="ia-decisao" style="display:none;"></p>
+          </div>
+        </div>
         <div class="alerta" id="alerta-form"></div>
         <div class="modal-acoes">
           <button type="button" class="btn btn-secundario" id="btn-cancelar-form">Cancelar</button>
