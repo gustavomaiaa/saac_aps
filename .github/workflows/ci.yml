@@ -1,23 +1,25 @@
 name: CI
 
-on:
-  push:
-  pull_request:
+on: [push, pull_request]
 
 jobs:
   testes:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - name: Instalar dependências
+
+      - name: Instalar dependencias
+        working-directory: backend
         run: npm ci
+
       - name: Rodar testes (usam servidor Ollama falso)
+        working-directory: backend
         run: npm test
