@@ -12,12 +12,7 @@
       <div class="icone">🔐</div>
       <div><h1>SAAC</h1><p>Sistema de Achados de Auditoria e Conformidade</p></div>
     </div>
-    <nav class="menu">
-      <a href="dashboard.html">Dashboard</a>
-      <a href="orgaos.html">Órgãos</a>
-      <a href="achados.html" class="ativo">Achados</a>
-      <a href="#" onclick="logout(); return false;">Sair</a>
-    </nav>
+    <nav class="menu" id="menu"></nav>
   </header>
 
   <main class="conteudo">
@@ -30,6 +25,7 @@
     </div>
 
     <div class="filtros">
+      <div class="campo campo-busca"><label for="filtro-busca">Buscar</label><input type="search" id="filtro-busca" placeholder="Título ou descrição..." /></div>
       <div class="campo"><label for="filtro-orgao">Órgão</label><select id="filtro-orgao"><option value="">Todos</option></select></div>
       <div class="campo">
         <label for="filtro-severidade">Severidade</label>
@@ -52,7 +48,13 @@
         <thead><tr><th>Título</th><th>Órgão</th><th>Severidade</th><th>Status</th><th>Criado por</th><th>Ações</th></tr></thead>
         <tbody id="tbody-achados"></tbody>
       </table>
+      <div class="vazio" id="carregando-achados">Carregando achados...</div>
       <div class="vazio" id="vazio-achados" style="display:none;">Nenhum achado encontrado.</div>
+      <div class="paginacao" id="paginacao" style="display:none;">
+        <button class="btn btn-secundario btn-pequeno" id="btn-anterior">Anterior</button>
+        <span id="info-pagina"></span>
+        <button class="btn btn-secundario btn-pequeno" id="btn-proxima">Próxima</button>
+      </div>
     </div>
   </main>
 

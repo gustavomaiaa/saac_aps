@@ -30,51 +30,74 @@ async function carregarOrgaosSelects() {
   filtroOrgao.innerHTML = '<option value="">Todos</option>';
   formOrgaoSelect.innerHTML = '<option value="">Selecione...</option>';
   dados.orgaos.forEach((orgao) => {
-    filtroOrgao.innerHTML += `<option value="${orgao.id}">${orgao.nome}</option>`;
-    formOrgaoSelect.innerHTML += `<option value="${orgao.id}">${orgao.nome}</option>`;
+    filtroOrgao.innerHTML += `<option value="${orgao.id}">${esc(orgao.nome)}</option>`;
+    formOrgaoSelect.innerHTML += `<option value="${orgao.id}">${esc(orgao.nome)}</option>`;
   });
 }
 
+let paginaAtual = 1;
+let achadosDaPagina = [];
+
+function parametrosFiltro() {
+  const params = new URLSearchParams();
+  const campos = { q: 'filtro-busca', orgao_id: 'filtro-orgao', severidade: 'filtro-severidade', status: 'filtro-status' };
+  Object.entries(campos).forEach(([nome, id]) => {
+    const valor = document.getElementById(id).value.trim();
+    if (valor) params.set(nome, valor);
+  });
+  return params;
+}
+
 async function carregarAchados() {
+  const carregando = document.getElementById('carregando-achados');
+  const paginacao = document.getElementById('paginacao');
+  carregando.style.display = 'block';
+  vazio.style.display = 'none';
   try {
-    const params = new URLSearchParams();
-    const orgaoId = document.getElementById('filtro-orgao').value;
-    const severidade = document.getElementById('filtro-severidade').value;
-    const status = document.getElementById('filtro-status').value;
-    if (orgaoId) params.set('orgao_id', orgaoId);
-    if (severidade) params.set('severidade', severidade);
-    if (status) params.set('status', status);
+    const params = parametrosFiltro();
+    params.set('pagina', paginaAtual);
+    params.set('limite', 10);
 
-    const resposta = await fetch(`${API_URL}/achados?${params.toString()}`, { headers: headersAutenticados() });
-    const dados = await resposta.json();
-    if (!resposta.ok) {
-      if (resposta.status === 401 || resposta.status === 403) return logout();
-      throw new Error(dados.erro);
-    }
+    const { ok, dados } = await api(`/achados?${params.toString()}`);
+    if (!ok) throw new Error(dados.erro || 'Não foi possível carregar os achados.');
 
+    paginaAtual = dados.pagina;
+    achadosDaPagina = dados.dados;
     tbody.innerHTML = '';
-    vazio.style.display = dados.achados.length === 0 ? 'block' : 'none';
-    dados.achados.forEach((achado) => {
+    vazio.style.display = dados.dados.length === 0 ? 'block' : 'none';
+    dados.dados.forEach((achado) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${achado.titulo}</td><td>${achado.orgao_nome}</td>
-        <td><span class="badge ${classeBadgeSeveridade(achado.severidade)}">${achado.severidade}</span></td>
-        <td><span class="badge ${classeBadgeStatus(achado.status)}">${achado.status}</span></td>
-        <td>${achado.criado_por_nome}</td>
+        <td>${esc(achado.titulo)}</td><td>${esc(achado.orgao_nome)}</td>
+        <td><span class="badge ${classeBadgeSeveridade(achado.severidade)}">${esc(achado.severidade)}</span></td>
+        <td><span class="badge ${classeBadgeStatus(achado.status)}">${esc(achado.status)}</span></td>
+        <td>${esc(achado.criado_por_nome)}</td>
         <td class="acoes">
           <button class="btn btn-secundario btn-pequeno" data-editar="${achado.id}">Editar</button>
-          <button class="btn btn-perigo btn-pequeno" data-excluir="${achado.id}" data-titulo="${achado.titulo}">Excluir</button>
+          <button class="btn btn-perigo btn-pequeno" data-excluir="${achado.id}" data-titulo="${esc(achado.titulo)}">Excluir</button>
         </td>`;
       tbody.appendChild(tr);
     });
     document.querySelectorAll('[data-editar]').forEach((btn) => {
-      btn.addEventListener('click', () => abrirFormEdicao(btn.dataset.editar, dados.achados));
+      btn.addEventListener('click', () => abrirFormEdicao(btn.dataset.editar, achadosDaPagina));
     });
     document.querySelectorAll('[data-excluir]').forEach((btn) => {
       btn.addEventListener('click', () => abrirConfirmacaoExclusao(btn.dataset.excluir, btn.dataset.titulo));
     });
+
+    paginacao.style.display = dados.total > 0 ? 'flex' : 'none';
+    document.getElementById('info-pagina').textContent = `Página ${dados.pagina} de ${dados.paginas} — ${dados.total} achado(s)`;
+    document.getElementById('btn-anterior').disabled = dados.pagina <= 1;
+    document.getElementById('btn-proxima').disabled = dados.pagina >= dados.paginas;
   } catch (erro) {
     console.error('Erro ao carregar achados:', erro);
+    tbody.innerHTML = '';
+    paginacao.style.display = 'none';
+    vazio.style.display = 'block';
+    vazio.textContent = erro instanceof TypeError
+      ? 'Erro de conexão com o servidor. Verifique se o backend está rodando.' : erro.message;
+  } finally {
+    carregando.style.display = 'none';
   }
 }
 
@@ -121,11 +144,16 @@ function abrirConfirmacaoExclusao(id, titulo) {
 document.getElementById('btn-novo-achado').addEventListener('click', abrirFormNovo);
 document.getElementById('btn-cancelar-form').addEventListener('click', () => overlayForm.classList.remove('aberto'));
 document.getElementById('btn-cancelar-excluir').addEventListener('click', () => overlayExcluir.classList.remove('aberto'));
-document.getElementById('btn-filtrar').addEventListener('click', carregarAchados);
+document.getElementById('btn-filtrar').addEventListener('click', () => { paginaAtual = 1; carregarAchados(); });
+document.getElementById('filtro-busca').addEventListener('keydown', (e) => { if (e.key === 'Enter') { paginaAtual = 1; carregarAchados(); } });
+document.getElementById('btn-anterior').addEventListener('click', () => { paginaAtual -= 1; carregarAchados(); });
+document.getElementById('btn-proxima').addEventListener('click', () => { paginaAtual += 1; carregarAchados(); });
 document.getElementById('btn-limpar-filtro').addEventListener('click', () => {
   document.getElementById('filtro-orgao').value = '';
   document.getElementById('filtro-severidade').value = '';
   document.getElementById('filtro-status').value = '';
+  document.getElementById('filtro-busca').value = '';
+  paginaAtual = 1;
   carregarAchados();
 });
 
@@ -198,5 +226,6 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
   }
 });
 
+document.getElementById('menu').innerHTML = montarMenu('achados.html');
 obterToken();
 carregarOrgaosSelects().then(carregarAchados);

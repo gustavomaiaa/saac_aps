@@ -46,25 +46,36 @@ router.post('/', (req, res) => {
   }
 });
 
+// Monta o WHERE a partir dos filtros da query string (usado na listagem e, depois, no CSV)
+function montarFiltros(query) {
+  const condicoes = [];
+  const parametros = [];
+  if (query.orgao_id) { condicoes.push('orgao_id = ?'); parametros.push(query.orgao_id); }
+  if (query.status) { condicoes.push('status = ?'); parametros.push(query.status); }
+  if (query.severidade) { condicoes.push('severidade = ?'); parametros.push(query.severidade); }
+  if (query.q && String(query.q).trim()) {
+    // escapa % e _ para que sejam buscados literalmente
+    const termo = '%' + String(query.q).trim().replace(/[\\%_]/g, '\\$&') + '%';
+    condicoes.push("(titulo LIKE ? ESCAPE '\\' OR descricao LIKE ? ESCAPE '\\')");
+    parametros.push(termo, termo);
+  }
+  return { whereSql: condicoes.length ? `WHERE ${condicoes.join(' AND ')}` : '', parametros };
+}
+
 router.get('/', (req, res) => {
   try {
-    const condicoes = [];
-    const parametros = [];
-    if (req.query.orgao_id) { condicoes.push('a.orgao_id = ?'); parametros.push(req.query.orgao_id); }
-    if (req.query.status) { condicoes.push('a.status = ?'); parametros.push(req.query.status); }
-    if (req.query.severidade) { condicoes.push('a.severidade = ?'); parametros.push(req.query.severidade); }
-    const whereSql = condicoes.length ? `WHERE ${condicoes.join(' AND ')}` : '';
+    const { whereSql, parametros } = montarFiltros(req.query);
+    const limite = Math.min(100, Math.max(1, parseInt(req.query.limite, 10) || 10));
+    const { total } = db.prepare(`SELECT COUNT(*) AS total FROM vw_achados_detalhados ${whereSql}`).get(...parametros);
+    const paginas = Math.max(1, Math.ceil(total / limite));
+    const pagina = Math.min(paginas, Math.max(1, parseInt(req.query.pagina, 10) || 1));
 
-    const achados = db.prepare(
-      `SELECT a.*, o.nome AS orgao_nome, u.nome AS criado_por_nome
-       FROM achados a
-       JOIN orgaos o ON o.id = a.orgao_id
-       JOIN usuarios u ON u.id = a.criado_por_id
-       ${whereSql}
-       ORDER BY a.criado_em DESC`
-    ).all(...parametros);
+    const dados = db.prepare(
+      `SELECT * FROM vw_achados_detalhados ${whereSql}
+       ORDER BY criado_em DESC, id DESC LIMIT ? OFFSET ?`
+    ).all(...parametros, limite, (pagina - 1) * limite);
 
-    return res.status(200).json({ sucesso: true, total: achados.length, achados });
+    return res.status(200).json({ sucesso: true, dados, total, pagina, paginas });
   } catch (erro) {
     console.error('Erro ao listar achados:', erro);
     return res.status(500).json({ sucesso: false, erro: 'Erro interno ao listar achados.' });

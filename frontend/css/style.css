@@ -155,3 +155,5 @@ a.btn-principal:hover { background: var(--azul-escuro); }
   table { min-width: 640px; }
   .barra-rotulo { width: 100px; }
 }
+
+.filtros .campo-busca { flex: 1; min-width: 200px; }

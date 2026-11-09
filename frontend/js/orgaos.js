@@ -22,11 +22,11 @@ async function carregarOrgaos() {
     dados.orgaos.forEach((orgao) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${orgao.nome}</td><td>${orgao.tipo}</td><td>${orgao.total_achados}</td>
+        <td>${esc(orgao.nome)}</td><td>${esc(orgao.tipo)}</td><td>${orgao.total_achados}</td>
         <td>${orgao.criado_em.split(' ')[0]}</td>
         <td class="acoes">
           <button class="btn btn-secundario btn-pequeno" data-editar="${orgao.id}">Editar</button>
-          <button class="btn btn-perigo btn-pequeno" data-excluir="${orgao.id}" data-nome="${orgao.nome}">Excluir</button>
+          <button class="btn btn-perigo btn-pequeno" data-excluir="${orgao.id}" data-nome="${esc(orgao.nome)}">Excluir</button>
         </td>`;
       tbody.appendChild(tr);
     });
@@ -142,5 +142,6 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
   }
 });
 
+document.getElementById('menu').innerHTML = montarMenu('orgaos.html');
 obterToken();
 carregarOrgaos();
