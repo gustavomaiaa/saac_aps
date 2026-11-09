@@ -181,7 +181,8 @@ funcionando e a IA informa "IA local indisponível. Verifique se o Ollama está 
 
 ## 7. Como rodar
 
-Requisitos: **Node.js 22.5+** (módulo `node:sqlite`) e, para a IA, o **Ollama**.
+Requisitos: **Node.js 22.5+** (módulo `node:sqlite`) e, para a IA, o **Ollama**. O CI valida o projeto no **Node 22**
+(`npm ci` + `npm test`, 68 testes), e o desenvolvimento local foi feito no Node 24.
 
 ### 7.1 Ollama (IA local)
 
