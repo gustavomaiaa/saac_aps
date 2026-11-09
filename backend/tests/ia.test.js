@@ -117,86 +117,70 @@ test('padrões: 400 sem achados; com achados calcula estatísticas e fatos em JS
   assert.strictEqual(enviada.options.num_predict, 400);
   assert.match(enviada.prompt, /Use SOMENTE os fatos numerados abaixo/);
   assert.match(enviada.prompt, /Não compare números por conta própria/);
-  assert.match(enviada.prompt, /1\. O total de achados cadastrados é 3\./);
-  assert.match(enviada.prompt, /2\. A severidade mais frequente é Alto, com 2 de 3 achados \(67%\)\./);
+  assert.match(enviada.prompt, /\[1\] O total de achados cadastrados é 3\./);
+  assert.match(enviada.prompt, /\[2\] A severidade mais frequente é Alto, com 2 de 3 achados \(67%\)\./);
+  assert.match(enviada.prompt, /Risco: \.\.\./);
+  assert.match(enviada.prompt, /Concentração: \.\.\./);
+  assert.match(enviada.prompt, /Tendência: \.\.\./);
+  assert.match(enviada.prompt, /citar entre colchetes/);
 });
 
-test('padrões: resposta correta é mantida integralmente', async () => {
+const OBS_RISCO = 'Risco: A predominância de severidade alta sugere exposição relevante a falhas de controle [2][4].';
+const OBS_CONC = 'Concentração: Todos os achados estão num único órgão reincidente, o que indica fragilidade localizada [6].';
+const OBS_TEND = 'Tendência: O volume concentrado em um só mês indica problemas recentes e ainda sem tratamento [7][8].';
+const ACAO = 'Ação prioritária: Priorizar a auditoria do órgão reincidente [6].';
+
+async function analisar(resposta) {
   ollama.modo = 'ok';
-  ollama.resposta = [
-    'Aqui estão as observações:',
-    '2. Alto é a severidade mais frequente, com 2 de 3 achados (67%).',
-    '5. Prefeitura X é reincidente, com 3 achados.',
-    '7. Todos os 3 achados estão em aberto (100%).',
-    'Ação prioritária: tratar primeiro os achados reincidentes da Prefeitura X.',
-  ].join('\n');
-  const r = await h.req('GET', '/ia/padroes', { token });
-  assert.strictEqual(r.corpo.interpretado, true);
-  assert.strictEqual(r.corpo.linhas_descartadas, 0);
-  const linhas = r.corpo.analise.split('\n');
-  assert.strictEqual(linhas.length, 4, 'sem a introdução solta');
-  assert.match(linhas[0], /^2\. Alto é a severidade mais frequente/);
+  ollama.resposta = resposta;
+  return (await h.req('GET', '/ia/padroes', { token })).corpo;
+}
+
+test('padrões: interpretação correta (com [n] existentes) é mantida; introdução solta é ignorada; [2, 6] é aceito', async () => {
+  const r = await analisar(['Aqui está a análise:', OBS_RISCO, OBS_CONC.replace('[6]', '[2, 6]'), OBS_TEND, ACAO].join('\n'));
+  assert.strictEqual(r.interpretado, true);
+  assert.strictEqual(r.linhas_descartadas, 0);
+  const linhas = r.analise.split('\n');
+  assert.strictEqual(linhas.length, 4);
+  assert.match(linhas[0], /^Risco:/);
   assert.match(linhas[3], /^Ação prioritária:/);
 });
 
-test('padrões: linha com número inventado é descartada, as válidas permanecem', async () => {
-  ollama.modo = 'ok';
-  ollama.resposta = [
-    '2. Alto é a severidade mais frequente, com 2 de 3 achados (67%).',
-    '3. Crítico aparece em 9 de 3 achados.',
-    '5. Prefeitura X é reincidente, com 3 achados.',
-    'Ação prioritária: tratar a Prefeitura X.',
-  ].join('\n');
-  const r = await h.req('GET', '/ia/padroes', { token });
-  assert.strictEqual(r.corpo.interpretado, true);
-  assert.strictEqual(r.corpo.linhas_descartadas, 1);
-  assert.ok(!r.corpo.analise.includes('9 de 3'));
-  assert.match(r.corpo.analise, /^2\. /);
-  assert.match(r.corpo.analise, /\n5\. /);
+test('padrões: número fora dos fatos é descartado, as demais linhas permanecem', async () => {
+  const r = await analisar([OBS_RISCO, 'Concentração: Existem 9 achados críticos em atraso no órgão [2].', OBS_TEND, ACAO].join('\n'));
+  assert.strictEqual(r.interpretado, true);
+  assert.strictEqual(r.linhas_descartadas, 1);
+  assert.ok(!r.analise.includes('9 achados'));
+  assert.strictEqual(r.analise.split('\n').length, 3);
 });
 
-test('padrões: número do fato fora do intervalo ou percentual inventado também é descartado', async () => {
-  ollama.modo = 'ok';
-  ollama.resposta = [
-    '2. Alto é a severidade mais frequente, com 2 de 3 achados (67%).',
-    '99. Fato que não existe com 3 achados.',
-    '3. Crítico representa 41% dos achados.',
-    '5. Prefeitura X é reincidente, com 3 achados.',
-  ].join('\n');
-  const r = await h.req('GET', '/ia/padroes', { token });
-  assert.strictEqual(r.corpo.linhas_descartadas, 2);
-  assert.strictEqual(r.corpo.analise.split('\n').length, 2);
+test('padrões: [n] inexistente e observação rotulada sem citação de fato são descartadas', async () => {
+  const r = await analisar([OBS_RISCO, 'Concentração: Fato que não existe [99].', 'Tendência: Observação sem citar nenhum fato.', ACAO].join('\n'));
+  assert.strictEqual(r.linhas_descartadas, 2);
+  assert.strictEqual(r.interpretado, false, 'sobrou só 1 observação útil');
 });
 
-test('padrões: numeração duplicada do modelo é normalizada e linha cortada (truncada) é descartada', async () => {
-  ollama.modo = 'ok';
-  ollama.resposta = [
-    '1. 2. Alto é a severidade mais frequente, com 2 de 3 achados (67%).',
-    '2. 5. Prefeitura X é reincidente, com 3 achados.',
-    '3. 7. Todos os 3 achados estão em aberto e a situação exige atenção com',
-    'Ação prioritária: tratar a Prefeitura X e reduzir a reinciden',
-  ].join('\n');
-  const r = await h.req('GET', '/ia/padroes', { token });
-  assert.strictEqual(r.corpo.interpretado, true);
-  assert.strictEqual(r.corpo.linhas_descartadas, 2, 'a linha truncada e a ação truncada');
-  const linhas = r.corpo.analise.split('\n');
-  assert.strictEqual(linhas.length, 2);
-  assert.ok(linhas[0].startsWith('2. Alto é a severidade'), 'usa o número do fato, não o da lista do modelo');
-  assert.ok(linhas[1].startsWith('5. Prefeitura X'));
+test('padrões: linha que é cópia quase idêntica de um fato é descartada', async () => {
+  const copia = 'Risco: A severidade mais frequente é Alto, com 2 de 3 achados (67%) [2].';
+  const r = await analisar([copia, OBS_CONC, OBS_TEND, ACAO].join('\n'));
+  assert.strictEqual(r.interpretado, true);
+  assert.strictEqual(r.linhas_descartadas, 1);
+  assert.ok(!r.analise.includes('A severidade mais frequente é Alto'));
 });
 
-test('padrões: sem pelo menos 2 linhas válidas devolve só os fatos com a mensagem de segurança', async () => {
-  ollama.modo = 'ok';
-  ollama.resposta = [
-    '2. Críticos são mais frequentes que altos, com 8 de 3 achados.',
-    '3. Há 12 achados em atraso.',
-    '5. Prefeitura X é reincidente, com 3 achados.',
-  ].join('\n');
-  const r = await h.req('GET', '/ia/padroes', { token });
-  assert.strictEqual(r.status, 200);
-  assert.strictEqual(r.corpo.interpretado, false);
-  assert.strictEqual(r.corpo.analise, 'A IA não conseguiu interpretar com segurança; veja os fatos acima.');
-  assert.ok(r.corpo.fatos.length >= 6, 'fatos continuam disponíveis');
+test('padrões: linha cortada pelo limite de tokens é descartada', async () => {
+  const r = await analisar([OBS_RISCO, OBS_CONC, 'Tendência: O volume concentrado em um só mês indica problemas recentes e', 'Ação prioritária: Priorizar a auditoria do órgão reinc'].join('\n'));
+  assert.strictEqual(r.interpretado, true);
+  assert.strictEqual(r.linhas_descartadas, 2);
+  assert.strictEqual(r.analise.split('\n').length, 2);
+});
+
+test('padrões: com menos de 2 linhas úteis devolve só os fatos e a mensagem de segurança (inclusive formato antigo sem [n])', async () => {
+  const r = await analisar(['2. Alto é a severidade mais frequente, com 2 de 3 achados (67%).', '5. Prefeitura X é reincidente, com 3 achados.', OBS_RISCO].join('\n'));
+  assert.strictEqual(r.status, undefined);
+  assert.strictEqual(r.interpretado, false);
+  assert.strictEqual(r.analise, 'A IA não conseguiu interpretar com segurança; veja os fatos acima.');
+  assert.ok(r.fatos.length >= 6, 'fatos continuam disponíveis');
   ollama.resposta = null;
 });
 

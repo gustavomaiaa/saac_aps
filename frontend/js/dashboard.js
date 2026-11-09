@@ -91,8 +91,10 @@ document.getElementById('btn-analisar').addEventListener('click', async () => {
       <div><b>Por tipo de órgão</b>${listaObj(e.por_tipo_orgao)}</div>
       <div><b>Órgãos reincidentes (3+)</b>${e.orgaos_reincidentes.length ? e.orgaos_reincidentes.map((o) => `${esc(o.nome)}: ${o.total}`).join('<br>') : '—'}</div>
       <div><b>Por mês</b>${listaObj(e.por_mes)}</div>`;
-    document.getElementById('padroes-fatos').innerHTML = dados.fatos.map((f) => `<li>${esc(f)}</li>`).join('');
+    document.getElementById('padroes-fatos').innerHTML = dados.fatos.map((f, i) => `<li><b>[${i + 1}]</b> ${esc(f)}</li>`).join('');
     document.getElementById('padroes-texto').textContent = dados.analise;
+    document.getElementById('padroes-texto').classList.toggle('sem-interpretacao', !dados.interpretado);
+    if (!dados.interpretado) document.querySelector('#painel-padroes .ia-base').open = true; // fallback: mostra os fatos
     document.getElementById('padroes-resultado').style.display = 'block';
     try { sessionStorage.setItem('saac_padroes', JSON.stringify(dados)); } catch (err) { /* opcional (usado no relatório) */ }
     carregarMetricas();

@@ -63,36 +63,63 @@ function numeros(texto) {
   return (texto.match(/\d+(?:[.,]\d+)?/g) || []).map((n) => n.replace(',', '.'));
 }
 
+// Referências a fatos entre colchetes: [2], [2][6] ou [2, 6]
+const RE_REFS = /\[\s*(\d{1,2}(?:\s*[,;]\s*\d{1,2})*)\s*\]/g;
+
+function extrairRefs(linha) {
+  const refs = [];
+  for (const m of linha.matchAll(RE_REFS)) m[1].split(/[,;]/).forEach((n) => refs.push(Number(n)));
+  return refs;
+}
+const semRefs = (linha) => linha.replace(RE_REFS, ' ');
+
 const RE_ACAO = /^\s*(?:[-*•]\s*)?\**\s*Ação prioritária\s*\**\s*:/i;
-// Um ou mais prefixos numéricos ("2. ", "Fato 2: ", ou "1. 2. " quando o modelo numera a própria lista).
-// Vale o ÚLTIMO número, que é o do fato citado.
-const RE_PREFIXOS = /^\s*(?:[-*•]\s*)?\**\s*((?:(?:Fato\s*)?\d{1,2}\s*[.):\-–]\s*\**\s*)+)(.*)$/i;
-// Linha cortada pelo limite de tokens (num_predict) não termina em pontuação: não é confiável
-const RE_FIM_COMPLETO = /[.!?…]["')»*]*$/;
+const RE_ROTULO = /^\s*(?:[-*•]\s*|\d+[.)]\s*)?\**\s*(Risco|Concentra[çc][ãa]o|Tend[êe]ncia)\s*\**\s*[:\-–]/i;
+// Linha cortada pelo limite de tokens (num_predict) não termina em pontuação (ou numa citação [n] ao final)
+const RE_FIM_COMPLETO = /(?:[.!?…]|\])["')»*]*\.?$/;
+
+// Palavras "de conteúdo" de um texto (minúsculas, sem acento, sem números nem citações)
+function palavras(texto) {
+  return semRefs(texto).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[^a-z\s]/g, ' ').split(/\s+/).filter((p) => p.length > 2);
+}
+
+// A linha é "cópia quase idêntica" de algum fato? (≥ 80% das palavras da linha aparecem no mesmo fato)
+function copiaDeFato(linha, fatos) {
+  const w = palavras(linha.replace(RE_ROTULO, '').replace(RE_ACAO, ''));
+  if (w.length < 4) return false;
+  return fatos.some((fato) => {
+    const conjunto = new Set(palavras(fato));
+    return w.filter((p) => conjunto.has(p)).length / w.length >= 0.8;
+  });
+}
 
 // Valida a resposta da IA contra os fatos. Devolve { linhas, descartadas, interpretado, analise }.
+// Uma observação só é aceita se: cita ao menos um [n] existente, não traz números fora dos fatos,
+// não é cópia dos fatos e não foi cortada. Com menos de 2 observações úteis, vale o fallback.
 function validarAnalise(texto, fatos) {
   const permitidos = new Set(fatos.flatMap(numeros));
   const validas = [];
   let acao = null;
   let descartadas = 0;
 
+  const aceitavel = (linha) => {
+    const refs = extrairRefs(linha);
+    if (refs.some((n) => n < 1 || n > fatos.length)) return false;               // [n] inexistente
+    if (!numeros(semRefs(linha)).every((n) => permitidos.has(n))) return false;   // número inventado
+    return RE_FIM_COMPLETO.test(linha) && !copiaDeFato(linha, fatos);              // truncada ou copiada
+  };
+
   texto.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).forEach((linha) => {
+    const limpa = linha.replace(/^[-*•]\s*/, '');
     if (RE_ACAO.test(linha)) {
-      if (RE_FIM_COMPLETO.test(linha) && numeros(linha).every((n) => permitidos.has(n))) acao = linha.replace(/^[-*•]\s*/, '');
-      else descartadas += 1;
+      if (aceitavel(linha)) acao = limpa; else descartadas += 1;
       return;
     }
-    const m = linha.match(RE_PREFIXOS);
-    if (!m) return; // introdução, comentário ou texto solto: ignorado
-    const indice = Number(m[1].match(/\d{1,2}/g).pop());
-    const resto = m[2].trim();
-    if (!resto || !RE_FIM_COMPLETO.test(resto) || indice < 1 || indice > fatos.length
-      || !numeros(resto).every((n) => permitidos.has(n))) {
-      descartadas += 1;
-      return;
-    }
-    validas.push(`${indice}. ${resto}`);
+    const temRef = extrairRefs(linha).length > 0;
+    if (!temRef && !RE_ROTULO.test(linha)) return; // introdução ou texto solto: ignorado
+    if (!temRef || !aceitavel(linha)) { descartadas += 1; return; } // observação sem citação de fato não é aceita
+    validas.push(limpa);
   });
 
   if (validas.length < 2) {

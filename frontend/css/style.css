@@ -196,3 +196,10 @@ a.btn-principal:hover { background: var(--azul-escuro); }
 .parecidos-box { background: #f0f9ff; border-color: #bae6fd; }
 .parecidos-box ul { margin: 6px 0 0; padding-left: 18px; }
 .parecidos-alerta { background: #fef3c7; color: #92400e; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-weight: 600; }
+
+/* --- Análise de padrões: fatos recolhidos e interpretação em destaque --- */
+.lista-fatos { list-style: none; padding-left: 0 !important; }
+.lista-fatos li { margin: 3px 0; }
+.interpretacao-ia { background: #f5f3ff; border: 1px solid #c4b5fd; border-left: 4px solid #7c3aed; border-radius: 8px; padding: 10px 14px; margin-top: 10px; }
+.interpretacao-ia h4 { margin: 0 0 6px; font-size: 14px; color: #5b21b6; }
+.texto-ia.sem-interpretacao { color: #92400e; font-weight: 600; }

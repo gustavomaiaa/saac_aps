@@ -138,17 +138,18 @@ function promptRecomendacao(base) {
   ].join('\n');
 }
 
-// fatos: lista de frases já interpretadas (ver services/padroes.js)
+// fatos: lista de frases já interpretadas (ver services/padroes.js). A IA deve INTERPRETAR, não repetir.
 function promptPadroes(fatos) {
   return [
     'Você é um auditor sênior de controle interno e conformidade no setor público.',
     'Use SOMENTE os fatos numerados abaixo. Não compare números por conta própria, não invente causas, leis, valores nem órgãos.',
-    'Escreva de 3 a 5 observações curtas, uma por linha, cada uma começando com o número do fato em que se baseia (exemplo: "2. ..."), e termine com uma "Ação prioritária:" de uma frase.',
-    'Não numere a lista por conta própria (use apenas o número do fato), não copie o fato inteiro e use no máximo 25 palavras por observação.',
+    'Escreva exatamente 3 observações de INTERPRETAÇÃO, uma por linha, nesta ordem: "Risco: ...", "Concentração: ...", "Tendência: ...".',
+    'Cada observação deve explicar o que os fatos significam para a auditoria, SEM repetir nem copiar as frases dos fatos, com no máximo 25 palavras, e citar entre colchetes o número do(s) fato(s) em que se baseia, por exemplo [2][6]. Evite escrever outros números além das citações.',
+    'Termine com uma linha "Ação prioritária:" com uma única frase (pode citar fatos entre colchetes).',
     'Em português, tom técnico.',
     '',
     'FATOS:',
-    ...fatos.map((f, i) => `${i + 1}. ${f}`),
+    ...fatos.map((f, k) => `[${k + 1}] ${f}`),
   ].join('\n');
 }
 
