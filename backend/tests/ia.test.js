@@ -122,7 +122,7 @@ test('padrões: 400 sem achados; com achados calcula estatísticas e fatos em JS
   assert.match(enviada.prompt, /Risco: \.\.\./);
   assert.match(enviada.prompt, /Concentração: \.\.\./);
   assert.match(enviada.prompt, /Tendência: \.\.\./);
-  assert.match(enviada.prompt, /citar entre colchetes/);
+  assert.match(enviada.prompt, /OBRIGATÓRIO: cada observação termina com a citação dos fatos/);
 });
 
 const OBS_RISCO = 'Risco: A predominância de severidade alta sugere exposição relevante a falhas de controle [2][4].';
