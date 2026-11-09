@@ -168,9 +168,12 @@ similaridade ≥ limiar (`SEMELHANTES_LIMIAR`, padrão 0,80) e marca **possível
 sugestão (a API responde 503 com "Execute: ollama pull nomic-embed-text").
 
 **Como a análise de padrões evita erros:** o sistema compara os números em JavaScript e gera *fatos numerados* prontos
-(ex.: "2. A severidade mais frequente é Alto, com 5 de 12 achados (42%)."). O modelo (temperature 0.2, `num_predict` 400) só redige
-observações sobre esses fatos. Cada linha é validada: números fora dos fatos, fatos inexistentes ou linhas cortadas são **descartados**;
-com menos de 2 linhas válidas, só os fatos são exibidos, com a mensagem "A IA não conseguiu interpretar com segurança; veja os fatos acima."
+(ex.: "[2] A severidade mais frequente é Alto, com 5 de 12 achados (42%)."). O modelo (temperature 0.2, `num_predict` 400) **interpreta** os fatos
+em 3 observações — *Risco*, *Concentração* e *Tendência* — mais uma *Ação prioritária*, citando os fatos entre colchetes (ex.: `[2][6]`).
+Cada linha é validada: citação `[n]` inexistente, ausência de citação, números fora dos fatos, linha cortada ou **cópia quase idêntica de um fato** são
+**descartados**; com menos de 2 observações úteis, só os fatos são exibidos, com a mensagem "A IA não conseguiu interpretar com segurança; veja os fatos acima."
+No dashboard, os "Fatos calculados" ficam recolhidos e a "Interpretação da IA" aparece em destaque. A validação garante a *ligação com os fatos*, não a
+*correção do raciocínio*: o texto interpretativo do modelo pode conter generalizações sem base e deve ser revisado.
 A recomendação proíbe citar leis, artigos e números que não estejam no achado. Se o Ollama estiver desligado, o restante do sistema continua
 funcionando e a IA informa "IA local indisponível. Verifique se o Ollama está em execução."
 
