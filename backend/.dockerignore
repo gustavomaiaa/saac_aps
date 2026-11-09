@@ -1,0 +1,5 @@
+node_modules
+saac.db*
+.env
+tests
+npm-debug.log

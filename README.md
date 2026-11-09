@@ -39,6 +39,20 @@ python -m http.server 5500     # depois abra http://localhost:5500/login.html
 
 (ou use a extensão *Live Server* do VS Code, ou abra `frontend/login.html` diretamente no navegador).
 
+### Como rodar com Docker
+
+O Ollama **não** roda em container: instale-o no host (`ollama pull llama3.2:3b`) e deixe-o em execução.
+O backend o acessa por `OLLAMA_URL=http://host.docker.internal:11434` (já configurado no `docker-compose.yml`).
+
+```bash
+docker compose up --build -d              # backend em :3000 e frontend em :8080
+docker compose exec backend node seed.js  # (opcional) dados de demonstração
+# abra http://localhost:8080/login.html
+docker compose down                       # o banco fica no volume "saac-dados"
+```
+
+Variáveis opcionais (shell ou arquivo `.env` ao lado do compose): `JWT_SECRET`, `CORS_ORIGIN`, `OLLAMA_URL`, `OLLAMA_MODEL`.
+
 ### Credenciais de demonstração (após `npm run seed`)
 
 | Campo | Valor |
