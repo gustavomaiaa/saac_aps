@@ -8,7 +8,7 @@ Checklist para retomar o trabalho. Atualizado a cada etapa.
 - [x] Etapa 4 — IA local com Ollama
 - [x] Etapa 5 — Histórico e desfazer (Memento)
 - [x] Etapa 6 — Exportação CSV e relatório
-- [ ] Etapa 7 — Permissões e sessão
+- [x] Etapa 7 — Permissões e sessão
 - [ ] Etapa 8 — Testes, seed e documentação
 - [ ] Etapa 9 — Polimento e verificação final
 

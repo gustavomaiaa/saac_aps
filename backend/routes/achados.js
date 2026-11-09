@@ -14,6 +14,17 @@ function severidadeValida(s) { return SEVERIDADES_VALIDAS.includes(s); }
 function statusValido(s) { return STATUS_VALIDOS.includes(s); }
 const MAX_RECOMENDACAO = 2000;
 
+// Regra: so o criador do achado ou um administrador pode editar, excluir e desfazer
+function podeModificar(req, achado) {
+  return req.usuario.perfil === 'admin' || achado.criado_por_id === req.usuario.id;
+}
+function negarPermissao(res, acao) {
+  return res.status(403).json({
+    sucesso: false,
+    erro: `Você não tem permissão para ${acao}. Apenas o criador do achado ou um administrador pode fazê-lo.`,
+  });
+}
+
 // Grava no banco o estado (campos editaveis) de um achado
 function gravarEstado(id, estado) {
   db.prepare(
@@ -163,6 +174,7 @@ router.put('/:id', (req, res) => {
   try {
     const existente = db.prepare('SELECT * FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
+    if (!podeModificar(req, existente)) return negarPermissao(res, 'editar este achado');
 
     const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(orgao_id);
     if (!orgao) return res.status(400).json({ sucesso: false, erro: 'Órgão informado não existe.' });
@@ -213,6 +225,7 @@ router.post('/:id/desfazer', (req, res) => {
   try {
     const existente = db.prepare('SELECT * FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
+    if (!podeModificar(req, existente)) return negarPermissao(res, 'desfazer edições deste achado');
 
     const originador = new Achado(existente);
     const historico = persistencia.carregar(db, existente.id, originador);
@@ -241,8 +254,9 @@ router.post('/:id/desfazer', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   try {
-    const existente = db.prepare('SELECT id FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
+    const existente = db.prepare('SELECT id, criado_por_id FROM achados WHERE id = ? AND excluido_em IS NULL').get(req.params.id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
+    if (!podeModificar(req, existente)) return negarPermissao(res, 'excluir este achado');
     // Exclusão lógica: o registro é preservado, apenas marcado como excluído
     db.prepare("UPDATE achados SET excluido_em = datetime('now') WHERE id = ?").run(req.params.id);
     return res.status(200).json({ sucesso: true, mensagem: 'Achado excluído com sucesso!' });

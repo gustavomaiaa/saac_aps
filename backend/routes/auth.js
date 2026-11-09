@@ -59,15 +59,19 @@ router.post('/cadastro', (req, res) => {
 
     const senhaHash = bcrypt.hashSync(senha, 10);
 
+    // O primeiro usuario cadastrado vira administrador; os demais sao auditores
+    const perfil = db.prepare('SELECT COUNT(*) AS total FROM usuarios').get().total === 0 ? 'admin' : 'auditor';
+
     const resultado = db
-      .prepare('INSERT INTO usuarios (nome, email, senha, area) VALUES (?, ?, ?, ?)')
-      .run(nome.trim(), email.toLowerCase(), senhaHash, area);
+      .prepare('INSERT INTO usuarios (nome, email, senha, area, perfil) VALUES (?, ?, ?, ?, ?)')
+      .run(nome.trim(), email.toLowerCase(), senhaHash, area, perfil);
 
     const usuario = {
-      id: resultado.lastInsertRowid,
+      id: Number(resultado.lastInsertRowid),
       nome: nome.trim(),
       email: email.toLowerCase(),
       area,
+      perfil,
     };
 
     const token = jwt.sign(usuario, process.env.JWT_SECRET, {
@@ -101,7 +105,7 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ sucesso: false, erro: 'Email ou senha incorretos.' });
     }
 
-    const usuario = { id: usuarioDb.id, nome: usuarioDb.nome, email: usuarioDb.email, area: usuarioDb.area };
+    const usuario = { id: usuarioDb.id, nome: usuarioDb.nome, email: usuarioDb.email, area: usuarioDb.area, perfil: usuarioDb.perfil };
 
     const token = jwt.sign(usuario, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || '2h',

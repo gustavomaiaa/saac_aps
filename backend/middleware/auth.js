@@ -1,5 +1,6 @@
 // middleware/auth.js — valida o token JWT em rotas protegidas
 const jwt = require('jsonwebtoken');
+const db = require('../db');
 
 function autenticarToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -11,9 +12,15 @@ function autenticarToken(req, res, next) {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, usuario) => {
     if (err) {
-      return res.status(403).json({ sucesso: false, erro: 'Token inválido ou expirado.' });
+      // 401: o frontend limpa a sessao e volta para o login
+      return res.status(401).json({ sucesso: false, erro: 'Token inválido ou expirado.' });
     }
-    req.usuario = usuario;
+    // O perfil vem do banco (e nao do token) para refletir mudancas de perfil e usuarios removidos
+    const atual = db.prepare('SELECT perfil FROM usuarios WHERE id = ?').get(usuario.id);
+    if (!atual) {
+      return res.status(401).json({ sucesso: false, erro: 'Usuário do token não existe mais.' });
+    }
+    req.usuario = { ...usuario, perfil: atual.perfil };
     next();
   });
 }

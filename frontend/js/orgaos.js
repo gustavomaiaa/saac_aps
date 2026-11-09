@@ -11,12 +11,8 @@ const alertaForm = document.getElementById('alerta-form');
 
 async function carregarOrgaos() {
   try {
-    const resposta = await fetch(`${API_URL}/orgaos`, { headers: headersAutenticados() });
-    const dados = await resposta.json();
-    if (!resposta.ok) {
-      if (resposta.status === 401 || resposta.status === 403) return logout();
-      throw new Error(dados.erro);
-    }
+    const { ok, dados } = await api('/orgaos');
+    if (!ok) throw new Error(dados.erro);
     tbody.innerHTML = '';
     vazio.style.display = dados.orgaos.length === 0 ? 'block' : 'none';
     dados.orgaos.forEach((orgao) => {
@@ -98,11 +94,9 @@ formOrgao.addEventListener('submit', async (e) => {
   btnSalvar.textContent = 'Salvando...';
 
   try {
-    const url = id ? `${API_URL}/orgaos/${id}` : `${API_URL}/orgaos`;
     const metodo = id ? 'PUT' : 'POST';
-    const resposta = await fetch(url, { method: metodo, headers: headersAutenticados(), body: JSON.stringify({ nome, tipo }) });
-    const dados = await resposta.json();
-    if (!resposta.ok || !dados.sucesso) {
+    const { ok, dados } = await api(id ? `/orgaos/${id}` : '/orgaos', { method: metodo, body: JSON.stringify({ nome, tipo }) });
+    if (!ok || !dados.sucesso) {
       alertaForm.className = 'alerta erro-geral';
       alertaForm.textContent = dados.erro || 'Não foi possível salvar o órgão.';
       return;
@@ -124,9 +118,8 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
   btn.disabled = true;
   btn.textContent = 'Excluindo...';
   try {
-    const resposta = await fetch(`${API_URL}/orgaos/${orgaoParaExcluir}`, { method: 'DELETE', headers: headersAutenticados() });
-    const dados = await resposta.json();
-    if (!resposta.ok || !dados.sucesso) {
+    const { ok, dados } = await api(`/orgaos/${orgaoParaExcluir}`, { method: 'DELETE' });
+    if (!ok || !dados.sucesso) {
       const alertaExcluir = document.getElementById('alerta-excluir');
       alertaExcluir.className = 'alerta erro-geral';
       alertaExcluir.textContent = dados.erro || 'Não foi possível excluir o órgão.';

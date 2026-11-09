@@ -1,5 +1,11 @@
 // achados.js — CRUD de Achados (listar com filtros, criar, editar, excluir)
 let achadoParaExcluir = null;
+let usuarioAtual = usuarioLogado();
+
+// Só o criador do achado ou um administrador pode editar/excluir (o servidor também valida)
+function podeModificar(achado) {
+  return !!usuarioAtual && (usuarioAtual.perfil === 'admin' || usuarioAtual.id === achado.criado_por_id);
+}
 let cacheOrgaos = [];
 
 const tbody = document.getElementById('tbody-achados');
@@ -21,9 +27,8 @@ function classeBadgeStatus(status) {
 }
 
 async function carregarOrgaosSelects() {
-  const resposta = await fetch(`${API_URL}/orgaos`, { headers: headersAutenticados() });
-  const dados = await resposta.json();
-  if (!resposta.ok) return;
+  const { ok, dados } = await api('/orgaos');
+  if (!ok) return;
   cacheOrgaos = dados.orgaos;
   const filtroOrgao = document.getElementById('filtro-orgao');
   const formOrgaoSelect = document.getElementById('achado-orgao');
@@ -72,9 +77,9 @@ async function carregarAchados() {
         <td><span class="badge ${classeBadgeSeveridade(achado.severidade)}">${esc(achado.severidade)}</span></td>
         <td><span class="badge ${classeBadgeStatus(achado.status)}">${esc(achado.status)}</span></td>
         <td>${esc(achado.criado_por_nome)}</td>
-        <td class="acoes">
+        <td class="acoes">${podeModificar(achado) ? `
           <button class="btn btn-secundario btn-pequeno" data-editar="${achado.id}">Editar</button>
-          <button class="btn btn-perigo btn-pequeno" data-excluir="${achado.id}" data-titulo="${esc(achado.titulo)}">Excluir</button>
+          <button class="btn btn-perigo btn-pequeno" data-excluir="${achado.id}" data-titulo="${esc(achado.titulo)}">Excluir</button>` : '<span class="sem-permissao" title="Apenas o criador do achado ou um administrador pode editar ou excluir">Somente leitura</span>'}
         </td>`;
       tbody.appendChild(tr);
     });
@@ -187,14 +192,12 @@ formAchado.addEventListener('submit', async (e) => {
   btnSalvar.textContent = 'Salvando...';
 
   try {
-    const url = id ? `${API_URL}/achados/${id}` : `${API_URL}/achados`;
     const metodo = id ? 'PUT' : 'POST';
-    const resposta = await fetch(url, {
-      method: metodo, headers: headersAutenticados(),
+    const { ok, dados } = await api(id ? `/achados/${id}` : '/achados', {
+      method: metodo,
       body: JSON.stringify({ titulo, descricao, orgao_id, severidade, status, recomendacao }),
     });
-    const dados = await resposta.json();
-    if (!resposta.ok || !dados.sucesso) {
+    if (!ok || !dados.sucesso) {
       alertaForm.className = 'alerta erro-geral';
       alertaForm.textContent = dados.erro || 'Não foi possível salvar o achado.';
       return;
@@ -216,9 +219,8 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
   btn.disabled = true;
   btn.textContent = 'Excluindo...';
   try {
-    const resposta = await fetch(`${API_URL}/achados/${achadoParaExcluir}`, { method: 'DELETE', headers: headersAutenticados() });
-    const dados = await resposta.json();
-    if (!resposta.ok || !dados.sucesso) {
+    const { ok, dados } = await api(`/achados/${achadoParaExcluir}`, { method: 'DELETE' });
+    if (!ok || !dados.sucesso) {
       const alertaExcluir = document.getElementById('alerta-excluir');
       alertaExcluir.className = 'alerta erro-geral';
       alertaExcluir.textContent = dados.erro || 'Não foi possível excluir o achado.';
@@ -381,4 +383,14 @@ document.getElementById('btn-ia-descartar').addEventListener('click', () => deci
 
 document.getElementById('menu').innerHTML = montarMenu('achados.html');
 obterToken();
-carregarOrgaosSelects().then(carregarAchados);
+// Atualiza os dados do usuário (perfil) a partir do servidor antes de montar a lista
+api('/auth/verify')
+  .then(({ ok, dados }) => {
+    if (ok && dados.usuario) {
+      usuarioAtual = dados.usuario;
+      localStorage.setItem('saac_usuario', JSON.stringify(dados.usuario));
+    }
+  })
+  .catch(() => {})
+  .then(carregarOrgaosSelects)
+  .then(carregarAchados);

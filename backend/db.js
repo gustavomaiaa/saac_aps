@@ -69,6 +69,15 @@ function adicionarColunaSeNaoExistir(tabela, coluna, definicao) {
 // --- Sprint V: exclusao logica de achados ---
 adicionarColunaSeNaoExistir('achados', 'excluido_em', 'TEXT');
 
+// --- Sprint V: perfil de acesso ('auditor' por padrao; o primeiro usuario e 'admin') ---
+adicionarColunaSeNaoExistir('usuarios', 'perfil', "TEXT NOT NULL DEFAULT 'auditor'");
+// Bancos antigos: se ainda nao ha nenhum admin, o primeiro usuario cadastrado vira admin
+db.exec(`
+  UPDATE usuarios SET perfil = 'admin'
+  WHERE id = (SELECT MIN(id) FROM usuarios)
+    AND NOT EXISTS (SELECT 1 FROM usuarios WHERE perfil = 'admin');
+`);
+
 // --- Sprint V: recomendacao da IA (editavel pelo auditor) ---
 adicionarColunaSeNaoExistir('achados', 'recomendacao', 'TEXT');
 
