@@ -172,6 +172,11 @@ sugestão (a API responde 503 com "Execute: ollama pull nomic-embed-text").
 em 3 observações — *Risco*, *Concentração* e *Tendência* — mais uma *Ação prioritária*, citando os fatos entre colchetes (ex.: `[2][6]`).
 Cada linha é validada: citação `[n]` inexistente, ausência de citação, números fora dos fatos, linha cortada ou **cópia quase idêntica de um fato** são
 **descartados**; com menos de 2 observações úteis, só os fatos são exibidos, com a mensagem "A IA não conseguiu interpretar com segurança; veja os fatos acima."
+Regras determinísticas adicionais: (1) linha que cita **status** fora de *Em aberto / Em análise / Implementado / Rejeitado* (ex.: "Resolvido", "Fechado",
+"Concluído", "Pendente") ou **severidade** fora de *Crítico / Alto / Médio / Baixo* é descartada; (2) se o fato dos meses indicar **empate**, a linha de *Tendência* do modelo é
+substituída pela frase fixa "Os achados estão distribuídos de forma uniforme entre os meses com mais registros [n]." (nada de "aumentar", "queda" etc.); (3) a *Ação prioritária*
+descartada é substituída por "Priorizar o acompanhamento dos órgãos reincidentes [n]." (ou, sem reincidentes, por uma ação neutra). As linhas padronizadas pelo sistema são contadas
+(`linhas_substituidas`) e informadas no dashboard.
 No dashboard, os "Fatos calculados" ficam recolhidos e a "Interpretação da IA" aparece em destaque. A validação garante a *ligação com os fatos*, não a
 *correção do raciocínio*: o texto interpretativo do modelo pode conter generalizações sem base e deve ser revisado.
 A recomendação proíbe citar leis, artigos e números que não estejam no achado. Se o Ollama estiver desligado, o restante do sistema continua

@@ -84,7 +84,8 @@ document.getElementById('btn-analisar').addEventListener('click', async () => {
     const { ok, dados } = await api('/ia/padroes');
     if (!ok) throw new Error(dados.erro || 'Não foi possível analisar os padrões.');
     const e = dados.estatisticas;
-    document.getElementById('padroes-meta').textContent = `Modelo: ${dados.modelo} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s`;
+    document.getElementById('padroes-meta').textContent = `Modelo: ${dados.modelo} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s`
+      + (dados.linhas_substituidas > 0 ? ` · ${dados.linhas_substituidas} linha(s) padronizada(s) pelo sistema (regras de validação)` : '');
     document.getElementById('padroes-estatisticas').innerHTML = `
       <div><b>Total de achados</b>${e.total_achados}</div>
       <div><b>Por severidade</b>${listaObj(e.por_severidade)}</div>

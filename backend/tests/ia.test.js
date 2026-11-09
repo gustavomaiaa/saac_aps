@@ -172,7 +172,9 @@ test('padrões: linha cortada pelo limite de tokens é descartada', async () => 
   const r = await analisar([OBS_RISCO, OBS_CONC, 'Tendência: O volume concentrado em um só mês indica problemas recentes e', 'Ação prioritária: Priorizar a auditoria do órgão reinc'].join('\n'));
   assert.strictEqual(r.interpretado, true);
   assert.strictEqual(r.linhas_descartadas, 2);
-  assert.strictEqual(r.analise.split('\n').length, 2);
+  const linhas = r.analise.split('\n');
+  assert.strictEqual(linhas.length, 3, '2 observações + ação fixa no lugar da ação truncada');
+  assert.match(linhas[2], /^Ação prioritária: Priorizar o acompanhamento dos órgãos reincidentes \[6\]\.$/);
 });
 
 test('padrões: com menos de 2 linhas úteis devolve só os fatos e a mensagem de segurança (inclusive formato antigo sem [n])', async () => {

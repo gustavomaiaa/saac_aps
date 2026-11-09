@@ -167,10 +167,10 @@ router.get('/padroes', async (req, res) => {
       return res.status(400).json({ sucesso: false, erro: 'Não há achados cadastrados para analisar.' });
     }
     // Os fatos (comparações, rankings, percentuais) são calculados aqui, não pelo modelo
-    const fatos = padroes.montarFatos(estatisticas);
+    const { fatos, meta } = padroes.montarFatosEMeta(estatisticas);
     const r = await ia.gerar(ia.promptPadroes(fatos), { temperature: 0.2, num_predict: 400 });
     // A resposta só é aceita se citar números presentes nos fatos
-    const validacao = padroes.validarAnalise(r.texto, fatos);
+    const validacao = padroes.validarAnalise(r.texto, fatos, meta);
     const usoId = registrarUso({ usuarioId: req.usuario.id, tipo: 'padroes', modelo: r.modelo, tempoMs: r.tempo_ms });
     return res.status(200).json({
       sucesso: true,
@@ -179,6 +179,7 @@ router.get('/padroes', async (req, res) => {
       analise: validacao.analise,
       interpretado: validacao.interpretado,
       linhas_descartadas: validacao.descartadas,
+      linhas_substituidas: validacao.substituidas,
       modelo: r.modelo,
       tempo_ms: r.tempo_ms,
       uso_id: usoId,

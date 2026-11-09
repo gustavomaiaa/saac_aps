@@ -32,3 +32,9 @@
 - [x] Análise de padrões: 3 observações de interpretação (risco/concentração/tendência) com citações [n] + ação prioritária; validação descarta [n] inexistente, número fora dos fatos, cópia de fato e linha cortada; fallback mantido
 - [x] Verificação no navegador (Chromium + playwright-core, fora do projeto): prints em `docs/prints/`
 - [x] CSS: botões Aceitar/Descartar e Cancelar/Salvar corrigidos (apareciam esticados)
+
+## Validação determinística da interpretação (padrões)
+- [x] Regra 1: status/severidades inexistentes descartam a linha
+- [x] Regra 2: meses empatados -> Tendência vira frase fixa gerada em JS
+- [x] Regra 3: Ação prioritária inválida/descartada -> ação fixa baseada nos órgãos reincidentes
+- [x] Testes por regra (`tests/padroes-regras.test.js`): 8 falham com o validador antigo e passam com o novo
