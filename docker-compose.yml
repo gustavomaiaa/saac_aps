@@ -6,7 +6,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      JWT_SECRET: ${JWT_SECRET:-troque_este_segredo_em_producao}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET (arquivo .env ao lado do docker-compose.yml)}
+      CODIGO_CONVITE: ${CODIGO_CONVITE:?defina CODIGO_CONVITE (código exigido no cadastro de novos usuários)}
       JWT_EXPIRES_IN: 2h
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
       OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}

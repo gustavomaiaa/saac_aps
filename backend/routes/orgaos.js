@@ -4,13 +4,15 @@
 const express = require('express');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
+const { exigirAdmin } = autenticarToken;
 const { tratarErro } = require('../middleware/erros');
 const v = require('../services/validacao');
 
 const router = express.Router();
 router.use(autenticarToken);
 
-router.post('/', (req, res) => {
+// Criar, editar e excluir órgãos: somente administradores (leitura liberada para qualquer usuário autenticado)
+router.post('/', exigirAdmin, (req, res) => {
   try {
     const corpo = v.corpoJson(req);
     v.exigir(corpo, ['nome', 'tipo'], 'Nome e tipo são obrigatórios.');
@@ -47,7 +49,7 @@ router.get('/:id', (req, res) => {
   }
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', exigirAdmin, (req, res) => {
   try {
     const id = v.idParam(req.params.id);
     const corpo = v.corpoJson(req);
@@ -63,7 +65,7 @@ router.put('/:id', (req, res) => {
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', exigirAdmin, (req, res) => {
   try {
     const id = v.idParam(req.params.id);
     const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(id);

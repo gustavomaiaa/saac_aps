@@ -194,7 +194,7 @@ test('o servidor se recusa a subir sem JWT_SECRET (processo termina com código 
     assert.match(r.stderr, /JWT_SECRET/);
   }
   assert.throws(() => validarConfiguracao({}), /JWT_SECRET/);
-  assert.doesNotThrow(() => validarConfiguracao({ JWT_SECRET: 'qualquer-coisa-aqui' }));
+  assert.doesNotThrow(() => validarConfiguracao({ JWT_SECRET: 'a'.repeat(40) }));
 });
 
 // ---------- Unidade: funções de validação ----------

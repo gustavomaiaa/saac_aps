@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputEmail = document.getElementById('email');
   const inputArea = document.getElementById('area');
   const inputSenha = document.getElementById('senha');
+  const inputConvite = document.getElementById('codigo-convite');
   const toggleSenha = document.getElementById('toggle-senha');
 
   toggleSenha.addEventListener('click', () => {
@@ -41,7 +42,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return ok;
   }
 
+  function validarConvite() {
+    const ok = inputConvite.value.trim().length > 0;
+    document.getElementById('erro-convite').textContent = ok ? '' : 'Informe o código de convite.';
+    inputConvite.classList.toggle('erro', !ok);
+    return ok;
+  }
+
   inputNome.addEventListener('blur', validarNome);
+  inputConvite.addEventListener('input', validarConvite);
   inputEmail.addEventListener('blur', validarEmail);
   inputArea.addEventListener('change', validarArea);
   inputSenha.addEventListener('input', validarSenha);
@@ -55,7 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailOk = validarEmail();
     const areaOk = validarArea();
     const senhaOk = validarSenha();
-    if (!nomeOk || !emailOk || !areaOk || !senhaOk) return;
+    const conviteOk = validarConvite();
+    if (!nomeOk || !emailOk || !areaOk || !senhaOk || !conviteOk) return;
 
     btn.disabled = true;
     btn.textContent = 'Criando conta...';
@@ -69,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
           email: inputEmail.value.trim(),
           senha: inputSenha.value,
           area: inputArea.value,
+          codigo_convite: inputConvite.value.trim(),
         }),
       });
       const dados = await resposta.json();

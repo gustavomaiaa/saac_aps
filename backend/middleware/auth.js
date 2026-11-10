@@ -25,4 +25,13 @@ function autenticarToken(req, res, next) {
   });
 }
 
+// Restringe a rota ao perfil admin (usar depois de autenticarToken)
+function exigirAdmin(req, res, next) {
+  if (!req.usuario || req.usuario.perfil !== 'admin') {
+    return res.status(403).json({ sucesso: false, erro: 'Apenas administradores podem criar, editar ou excluir órgãos.' });
+  }
+  return next();
+}
+
 module.exports = autenticarToken;
+module.exports.exigirAdmin = exigirAdmin;

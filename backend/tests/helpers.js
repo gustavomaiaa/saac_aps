@@ -1,7 +1,9 @@
 // tests/helpers.js — ambiente de teste: banco em memoria + servidor Express em porta aleatoria.
 // Deve ser o PRIMEIRO require dos arquivos de teste (define as variaveis de ambiente antes do app).
 process.env.SAAC_DB_PATH = ':memory:';
+process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'segredo_de_teste';
+process.env.CODIGO_CONVITE = 'convite-de-teste';
 process.env.OLLAMA_TIMEOUT_MS = process.env.OLLAMA_TIMEOUT_MS || '2000';
 // Nunca falar com o Ollama real nos testes: por padrão aponta para uma porta sem ninguém escutando
 process.env.OLLAMA_URL = 'http://127.0.0.1:1';
@@ -38,7 +40,7 @@ async function req(metodo, caminho, { token, body } = {}) {
 async function novoUsuario(nome = 'Usuario Teste') {
   contador += 1;
   const r = await req('POST', '/auth/cadastro', {
-    body: { nome, email: `u${contador}@teste.com`, senha: '123456', area: 'Compliance' },
+    body: { nome, email: `u${contador}@teste.com`, senha: '123456', area: 'Compliance', codigo_convite: process.env.CODIGO_CONVITE },
   });
   return { token: r.corpo.token, usuario: r.corpo.usuario };
 }

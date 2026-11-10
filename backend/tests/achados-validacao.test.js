@@ -68,7 +68,7 @@ test('validações de órgão: nome curto e tipo inválido', async () => {
 });
 
 test('cadastro: validações e email duplicado (409)', async () => {
-  const corpo = { nome: 'Fulano de Tal', email: 'dup@teste.com', senha: '123456', area: 'Saúde' };
+  const corpo = { nome: 'Fulano de Tal', email: 'dup@teste.com', senha: '123456', area: 'Saúde', codigo_convite: process.env.CODIGO_CONVITE };
   assert.strictEqual((await h.req('POST', '/auth/cadastro', { body: corpo })).status, 201);
   assert.strictEqual((await h.req('POST', '/auth/cadastro', { body: corpo })).status, 409);
   assert.strictEqual((await h.req('POST', '/auth/cadastro', { body: { ...corpo, email: 'x@y.com', senha: '123' } })).status, 400);

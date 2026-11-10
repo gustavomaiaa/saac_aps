@@ -7,6 +7,14 @@ const autenticarToken = require('../middleware/auth');
 const { limitarLogin, registrarFalha, registrarSucesso } = require('../middleware/limiteLogin');
 const { tratarErro } = require('../middleware/erros');
 const v = require('../services/validacao');
+const crypto = require('crypto');
+
+// Comparação em tempo constante do código de convite (CODIGO_CONVITE no .env)
+function conviteConfere(informado) {
+  const esperado = process.env.CODIGO_CONVITE;
+  const hash = (t) => crypto.createHash('sha256').update(String(t)).digest();
+  return crypto.timingSafeEqual(hash(informado), hash(String(esperado).trim()));
+}
 
 const router = express.Router();
 
@@ -14,6 +22,15 @@ router.post('/cadastro', (req, res) => {
   try {
     const corpo = v.corpoJson(req);
     v.exigir(corpo, ['nome', 'email', 'senha', 'area'], 'Todos os campos são obrigatórios: nome, email, senha e área.');
+    // Cadastro somente com código de convite (definido pelo administrador em CODIGO_CONVITE)
+    if (!process.env.CODIGO_CONVITE || !process.env.CODIGO_CONVITE.trim()) {
+      return res.status(403).json({ sucesso: false, erro: 'Cadastro desativado: o administrador ainda não definiu o código de convite (CODIGO_CONVITE) no servidor.' });
+    }
+    v.exigir(corpo, ['codigo_convite'], 'Informe o código de convite.');
+    const codigo = v.texto(corpo.codigo_convite, 'O código de convite', { max: v.LIMITES.codigoConvite.max });
+    if (!conviteConfere(codigo)) {
+      return res.status(403).json({ sucesso: false, erro: 'Código de convite inválido.' });
+    }
     const { nome, email, senha, area } = v.validarCadastro(corpo);
 
     const existente = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(email);

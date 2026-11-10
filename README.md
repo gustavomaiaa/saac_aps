@@ -223,7 +223,7 @@ ollama pull nomic-embed-text     # embeddings (achados semelhantes)
 ```bash
 cd backend
 npm install
-copy .env.example .env        # Linux/macOS: cp .env.example .env  (troque o JWT_SECRET)
+copy .env.example .env        # Linux/macOS: cp .env.example .env  — depois PREENCHA JWT_SECRET e CODIGO_CONVITE (ver abaixo)
 npm start                     # API em http://localhost:3000
 npm run seed                  # (opcional) dados de demonstração (gera embeddings se o Ollama estiver no ar)
 npm run embeddings            # (opcional) gera embeddings dos achados existentes (--todos para regenerar)
@@ -237,9 +237,26 @@ cd frontend
 python -m http.server 5500    # abra http://localhost:5500/login.html
 ```
 
+**Antes de iniciar (obrigatório):** o servidor **não sobe** sem um `JWT_SECRET` forte e recusa os segredos de exemplo publicados em versões antigas do projeto.
+Gere um segredo e escolha o código de convite no `backend/.env`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # cole o resultado em JWT_SECRET=
+# CODIGO_CONVITE=<código que você vai informar a quem for criar conta>
+```
+
 ### 7.3 Com Docker
 
 O Ollama **roda no host**, não em container; o backend o acessa por `OLLAMA_URL=http://host.docker.internal:11434` (já definido no compose).
+
+O `docker-compose.yml` **exige** `JWT_SECRET` e `CODIGO_CONVITE` (não há valores padrão: sem eles o `docker compose up` aborta com uma mensagem).
+Crie um arquivo `.env` **ao lado do `docker-compose.yml`** (ele não vai para o git):
+
+```bash
+# .env (raiz do projeto)
+JWT_SECRET=<saída de: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
+CODIGO_CONVITE=<código de convite para novos usuários>
+```
 
 ```bash
 docker compose up --build -d              # backend :3000 e frontend :8080
@@ -253,7 +270,8 @@ docker compose down                       # use "down -v" para apagar também o 
 | Variável | Padrão | Descrição |
 |----------|--------|-----------|
 | `PORT` | `3000` | Porta da API |
-| `JWT_SECRET` | — | Segredo dos tokens (**obrigatório; troque**) |
+| `JWT_SECRET` | — | Segredo dos tokens (**obrigatório**, mínimo de 32 caracteres; valores de exemplo/"troque…" são recusados e o servidor não inicia) |
+| `CODIGO_CONVITE` | — | Código exigido no cadastro de novos usuários (sem ele o cadastro fica desativado) |
 | `JWT_EXPIRES_IN` | `2h` | Validade do token |
 | `CORS_ORIGIN` | `http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080` | Origens do frontend permitidas (vírgula) |
 | `LOGIN_MAX_TENTATIVAS` / `LOGIN_JANELA_MS` | `5` / `900000` | Falhas de login por IP e janela (15 min) |
@@ -274,7 +292,8 @@ Após `npm run seed`:
 | `admin@saac.demo` | `admin123` | administrador |
 
 O seed cria ainda 4 órgãos e 12 achados (a Prefeitura e a Secretaria de Saúde são reincidentes). Para ver as permissões, cadastre
-um segundo usuário pela tela de cadastro (ele entra como `auditor`). O primeiro usuário cadastrado de um banco vazio vira `admin`.
+um segundo usuário pela tela de cadastro, informando o **código de convite** (`CODIGO_CONVITE` do `.env`); ele entra como `auditor`. O admin do seed faz login normalmente, sem convite.
+Num banco sem usuários, o primeiro cadastro (também com convite) vira `admin`; o usual é rodar `npm run seed`.
 
 ## 9. Endpoints da API
 
@@ -283,11 +302,11 @@ Todas as rotas, exceto cadastro/login/health, exigem `Authorization: Bearer <tok
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | GET | `/api/health` | Verificação de saúde |
-| POST | `/api/auth/cadastro` | Cadastro (1º usuário = `admin`, demais = `auditor`) |
+| POST | `/api/auth/cadastro` | Cadastro **com `codigo_convite`** (1º usuário = `admin`, demais = `auditor`) |
 | POST | `/api/auth/login` | Login (`429` após 5 falhas em 15 min por IP) |
 | GET | `/api/auth/verify` | Valida o token e devolve o usuário |
-| POST / GET | `/api/orgaos` | Criar / listar órgãos |
-| GET / PUT / DELETE | `/api/orgaos/:id` | Detalhe / editar / excluir (`409` se tiver achados) |
+| POST / GET | `/api/orgaos` | Criar (**somente admin**) / listar órgãos |
+| GET / PUT / DELETE | `/api/orgaos/:id` | Detalhe / editar e excluir (**somente admin**; `409` se tiver achados ativos) |
 | POST | `/api/achados` | Criar achado |
 | GET | `/api/achados` | Listar: `severidade`, `status`, `orgao_id`, `q`, `pagina`, `limite` → `{ dados, total, pagina, paginas }` |
 | GET | `/api/achados/exportar.csv` | CSV (UTF-8 com BOM, `;`) com os mesmos filtros |

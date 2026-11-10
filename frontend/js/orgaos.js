@@ -1,5 +1,11 @@
 // orgaos.js — CRUD de Orgaos (listar, criar, editar, excluir)
 let orgaoParaExcluir = null;
+let usuarioAtual = usuarioLogado();
+
+// Somente administradores criam, editam e excluem órgãos (o servidor também valida)
+function ehAdmin() {
+  return !!usuarioAtual && usuarioAtual.perfil === 'admin';
+}
 
 const tbody = document.getElementById('tbody-orgaos');
 const vazio = document.getElementById('vazio-orgaos');
@@ -23,9 +29,9 @@ async function carregarOrgaos() {
       tr.innerHTML = `
         <td>${esc(orgao.nome)}</td><td>${esc(orgao.tipo)}</td><td>${orgao.total_achados}</td>
         <td>${orgao.criado_em.split(' ')[0]}</td>
-        <td class="acoes">
+        <td class="acoes">${ehAdmin() ? `
           <button class="btn btn-secundario btn-pequeno" data-editar="${orgao.id}">Editar</button>
-          <button class="btn btn-perigo btn-pequeno" data-excluir="${orgao.id}" data-nome="${esc(orgao.nome)}">Excluir</button>
+          <button class="btn btn-perigo btn-pequeno" data-excluir="${orgao.id}" data-nome="${esc(orgao.nome)}">Excluir</button>` : '<span class="sem-permissao" title="Apenas administradores editam órgãos">Somente leitura</span>'}
         </td>`;
       tbody.appendChild(tr);
     });
@@ -144,4 +150,16 @@ document.getElementById('btn-confirmar-excluir').addEventListener('click', async
 
 document.getElementById('menu').innerHTML = montarMenu('orgaos.html');
 obterToken();
-carregarOrgaos();
+// Atualiza o perfil a partir do servidor antes de montar a lista (mostra/oculta os botões)
+api('/auth/verify')
+  .then(({ ok, dados }) => {
+    if (ok && dados.usuario) {
+      usuarioAtual = dados.usuario;
+      localStorage.setItem('saac_usuario', JSON.stringify(dados.usuario));
+    }
+  })
+  .catch(() => {})
+  .then(() => {
+    document.getElementById('btn-novo-orgao').style.display = ehAdmin() ? '' : 'none';
+    return carregarOrgaos();
+  });
