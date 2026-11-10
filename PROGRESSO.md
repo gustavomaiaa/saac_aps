@@ -38,3 +38,16 @@
 - [x] Regra 2: meses empatados -> Tendência vira frase fixa gerada em JS
 - [x] Regra 3: Ação prioritária inválida/descartada -> ação fixa baseada nos órgãos reincidentes
 - [x] Testes por regra (`tests/padroes-regras.test.js`): 8 falham com o validador antigo e passam com o novo
+
+## Correções da auditoria (docs/AUDITORIA.md) — concluídas
+- [x] 1. Entrada e erros: validação central (`services/validacao.js`), tratador global em JSON sem stack trace, 400 em vez de 500, servidor não sobe sem `JWT_SECRET`
+- [x] 2. Autenticação/permissões: segredo de exemplo recusado, compose exige `JWT_SECRET`/`CODIGO_CONVITE`, cadastro por convite (campo no formulário), órgãos só para admin
+- [x] 3. Abuso: bcrypt assíncrono, limite de cadastro por IP, limite de IA por usuário (configurável, 429 claro), login bloqueado por IP + e-mail
+- [x] 4. IA: filtro da recomendação (lei/artigo/decreto/números), texto do usuário delimitado em `<achado>`, README sem a promessa só-de-prompt, IA = sugestão com confirmação humana
+- [x] 5. Dados e tempo: America/Fortaleza nas telas e no CSV, conflito 409 por `versao` (+ aviso e recarregar no frontend), embeddings sem corrida, remoção lógica de órgão com achados todos excluídos
+- [x] 6. README, ROTEIRO_DEMO (com convite), PROGRESSO e AUDITORIA atualizados (seção 11 "Estado após correções")
+- [x] 7. Verificação final: 149 testes, CI verde, e roteiro no navegador (Chromium + Playwright em pasta temporária, banco temporário) com 19/19 verificações — prints em `docs/prints/final-*.png`
+
+### Como o ambiente local mudou
+- `backend/.env` (não versionado) precisa de `JWT_SECRET` forte e `CODIGO_CONVITE`; o `.env` local deste computador foi atualizado (segredo aleatório novo; convite de demonstração `saac-convite-2026`). Tokens antigos deixam de valer (basta entrar de novo).
+- Bancos existentes são migrados sozinhos (colunas `achados.versao` e `orgaos.excluido_em`).

@@ -3,16 +3,18 @@
 ## Antes de começar (preparação, fora do tempo)
 
 1. Ollama em execução com o modelo: `ollama pull llama3.2:3b` (se ainda não baixou).
-2. Banco limpo com dados de demonstração:
+2. Configuração (uma vez): em `backend/.env` defina **`JWT_SECRET`** (o servidor não sobe sem ele; gere com
+   `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) e **`CODIGO_CONVITE`** (ex.: `saac-convite-2026`) — o código será usado na demonstração do cadastro.
+   Banco limpo com dados de demonstração:
    ```bash
    cd backend && npm install && npm start      # terminal 1
    npm run seed                                # terminal 2 (login: admin@saac.demo / admin123)
    ```
-   (ou `docker compose up --build -d` e `docker compose exec backend node seed.js`)
+   (ou, com Docker: crie o `.env` na raiz com `JWT_SECRET` e `CODIGO_CONVITE`, depois `docker compose up --build -d` e `docker compose exec backend node seed.js`)
 3. Frontend: `cd frontend && python -m http.server 5500` → abrir `http://localhost:5500/login.html`
    (com Docker: `http://localhost:8080/login.html`).
 4. **Aquecer a IA:** gere uma recomendação ou análise uma vez antes (a 1ª chamada leva ~12 s porque o modelo é carregado; depois ~4–6 s).
-5. Ter um segundo usuário cadastrado (ex.: `auditor@teste.com` / `123456`) para mostrar permissões.
+5. Ter à mão o **código de convite** (`CODIGO_CONVITE`): o segundo usuário (ex.: `auditor@teste.com` / `123456`) será criado **ao vivo** na tela de cadastro, para mostrar o convite e as permissões. O admin do seed entra direto, sem convite.
 
 ---
 
@@ -56,14 +58,16 @@
 ### 3:45 — Editar, desfazer e auditoria (45 s)
 - **Clicar:** **Editar** no achado recém-criado → mudar severidade para **Crítico** e status **Em análise** → Salvar.
 - **Clicar:** reabrir **Editar** → **Desfazer última edição** (o formulário volta ao estado anterior).
-- **Clicar:** aba **Histórico de auditoria**.
+- **Clicar:** aba **Histórico de auditoria** (os horários aparecem em horário de Fortaleza).
+- **Opcional (15 s):** abrir o mesmo achado em duas abas, salvar na 1ª e depois na 2ª: a 2ª recebe o aviso de **conflito de edição** ("alterado por outra pessoa") com o botão de recarregar.
 - **Falar:** "O desfazer usa o padrão Memento: o estado salvo fica encapsulado. A aba mostra quem fez o quê e quando — criação, edição e restauração, com os campos alterados."
 
-### 4:30 — Permissões, exclusão e relatório (30 s)
-- **Clicar:** sair, entrar como o auditor e mostrar que os achados do admin aparecem como "Somente leitura".
+### 4:30 — Convite, permissões, exclusão e relatório (30 s)
+- **Clicar:** **Sair** → link "Criar conta": preencher o cadastro **com o código de convite** (mostrar que sem o código ou com código errado a conta não é criada) e entrar como esse auditor.
+- Mostrar que os achados do admin aparecem como "Somente leitura" e que em **Órgãos** não há botões de criar/editar/excluir (só o administrador altera órgãos).
 - Voltar ao admin, **Excluir** um achado (mostrar a confirmação).
 - **Clicar:** **Relatório → Imprimir / salvar PDF**.
-- **Falar:** "Só o criador ou um administrador altera um achado. A exclusão é lógica: o registro fica no banco e na auditoria. O relatório é imprimível e inclui a análise da IA já gerada."
+- **Falar:** "O cadastro só funciona com um código de convite definido pelo administrador. Só o criador ou um administrador altera um achado, e só o administrador altera órgãos. A exclusão é lógica: o registro fica no banco e na auditoria. O relatório é imprimível e inclui a análise da IA já gerada."
 
 ### 5:00 — Fechamento (10 s)
 - **Falar:** "Arquitetura em três camadas, Memento para o histórico, IA local com privacidade, auditoria, CI e Docker. Os testes automatizados usam um Ollama falso, então rodam em qualquer máquina."

@@ -46,8 +46,8 @@ Stack: Node.js + Express, SQLite nativo (`node:sqlite`), JWT, HTML/CSS/JavaScrip
 | RF11 | Trilha de auditoria (quem fez o quê e quando) de criar, editar, excluir e restaurar achados |
 | RF12 | Exportação de achados em CSV respeitando os filtros |
 | RF13 | Relatório imprimível (resumo, análise de padrões e tabela de achados) |
-| RF14 | Permissões: só o criador do achado ou um administrador edita, exclui e desfaz |
-| RF15 | Proteções: limite de tentativas de login, cabeçalhos de segurança e CORS restrito |
+| RF14 | Permissões: só o criador do achado ou um administrador edita, exclui e desfaz achados; só o administrador cria, edita e exclui órgãos |
+| RF15 | Proteções: validação de entrada, erros sem vazamento, segredo JWT obrigatório, cadastro por convite, limites de taxa, cabeçalhos de segurança e CORS restrito |
 | RF16 | Severidade sugerida por IA local (valor validado, justificativa curta), confirmada pelo usuário |
 | RF17 | Achados semelhantes por embeddings, com alerta de possível duplicidade ao cadastrar |
 
@@ -189,29 +189,29 @@ funcionando e a IA informa "IA local indisponível. Verifique se o Ollama está 
 
 | Requisito | Tela | Endpoint(s) | Teste automatizado |
 |-----------|------|-------------|--------------------|
-| RF01 Cadastro/login | `cadastro.html`, `login.html` | `POST /api/auth/cadastro`, `POST /api/auth/login`, `GET /api/auth/verify` | `achados-validacao` (cadastro), `permissoes`, `seguranca` (hash bcrypt) |
-| RF02 Órgãos | `orgaos.html` | `/api/orgaos` | `exclusao` (409), `achados-validacao` |
-| RF03 Achados | `achados.html` | `POST/GET/PUT/DELETE /api/achados` | `achados-validacao`, `ia` (recomendação no CRUD) |
+| RF01 Cadastro/login | `cadastro.html` (com código de convite), `login.html` | `POST /api/auth/cadastro`, `POST /api/auth/login`, `GET /api/auth/verify` | `achados-validacao` (cadastro), `convite-permissoes` (convite, segredo), `permissoes`, `seguranca` (hash bcrypt), `limites` (bcrypt assíncrono) |
+| RF02 Órgãos | `orgaos.html` (botões só para admin) | `/api/orgaos` | `exclusao` (409 e remoção lógica), `convite-permissoes` (401/403), `entrada-erros` |
+| RF03 Achados | `achados.html` | `POST/GET/PUT/DELETE /api/achados` | `achados-validacao`, `entrada-erros` (tipos/tamanhos), `dados-tempo` (versão/409), `ia` (recomendação no CRUD) |
 | RF04 Filtros/paginação | `achados.html` | `GET /api/achados?...` | `achados-filtros` |
 | RF05 Exclusão lógica | `achados.html` | `DELETE /api/achados/:id` | `exclusao` |
 | RF06 Dashboard | `dashboard.html` | `GET /api/dashboard` | `dashboard` |
-| RF07 Recomendação IA | `achados.html` (Gerar com IA) | `POST /api/ia/recomendacao`, `POST /api/ia/uso/:id/resultado` | `ia` (sucesso, 503, 504, 502) |
+| RF07 Recomendação IA | `achados.html` (Gerar com IA) | `POST /api/ia/recomendacao`, `POST /api/ia/uso/:id/resultado` | `ia` (sucesso, 503, 504, 502), `ia-injecao` (filtro, delimitação, prompt injection) |
 | RF08 Análise de padrões | `dashboard.html` | `GET /api/ia/padroes` | `ia` (fatos, número inventado, sem linhas válidas) |
 | RF09 Métricas IA | `dashboard.html` | `GET /api/ia/metricas`, `GET /api/ia/status` | `ia` (métricas) |
 | RF10 Histórico/desfazer | `achados.html` (edição) | `GET .../historico`, `POST .../desfazer` | `memento` |
-| RF11 Auditoria | `achados.html` (aba Histórico de auditoria) | `GET /api/achados/:id/auditoria` | `auditoria` |
+| RF11 Auditoria | `achados.html` (aba Histórico de auditoria, horário de Fortaleza) | `GET /api/achados/:id/auditoria` | `auditoria`, `dados-tempo` (fuso) |
 | RF12 CSV | `achados.html` (Exportar CSV) | `GET /api/achados/exportar.csv` | `csv` |
 | RF13 Relatório | `relatorio.html` | `GET /api/dashboard`, `GET /api/achados` | cobertura indireta pelos testes dos endpoints (tela verificada manualmente) |
-| RF14 Permissões | `achados.html` (botões por perfil) | `PUT/DELETE/POST desfazer` → 403 | `permissoes` |
-| RF15 Proteções | `login.html` (mensagem 429) | `POST /api/auth/login` | `seguranca` |
+| RF14 Permissões | `achados.html` e `orgaos.html` (botões por perfil) | `PUT/DELETE/POST desfazer` de achados e `POST/PUT/DELETE` de órgãos → 403 | `permissoes`, `convite-permissoes` |
+| RF15 Proteções | `login.html`, `cadastro.html` e telas de IA (mensagens 400/403/429) | `POST /api/auth/*`, `/api/ia/*` | `seguranca`, `entrada-erros`, `convite-permissoes`, `limites` |
 | RF16 Severidade sugerida | `achados.html` (Sugerir severidade com IA) | `POST /api/ia/severidade` | `ia-severidade-semelhantes` (válida, inválida 502, justificativa, 503) |
-| RF17 Achados semelhantes | `achados.html` (Achados parecidos / duplicidade) | `GET /api/ia/semelhantes`, `npm run embeddings` | `ia-severidade-semelhantes` (cosseno, limiar, modelo ausente, reindexação) |
+| RF17 Achados semelhantes | `achados.html` (Achados parecidos / duplicidade) | `GET /api/ia/semelhantes`, `npm run embeddings` | `ia-severidade-semelhantes` (cosseno, limiar, modelo ausente, reindexação), `dados-tempo` (vetor sem corrida) |
 | Dados de demonstração | — | `npm run seed` | `seed` |
 
 ## 7. Como rodar
 
 Requisitos: **Node.js 22.5+** (módulo `node:sqlite`) e, para a IA, o **Ollama**. O CI valida o projeto no **Node 22**
-(`npm ci` + `npm test`, 79 testes), e o desenvolvimento local foi feito no Node 24.
+(`npm ci` + `npm test`, 149 testes), e o desenvolvimento local foi feito no Node 24.
 
 ### 7.1 Ollama (IA local)
 
@@ -342,12 +342,13 @@ saac_aps/
 ├── .github/workflows/ci.yml      # npm ci + npm test no Node 22
 ├── docs/ROTEIRO_DEMO.md          # demonstração de 5 minutos
 ├── backend/
-│   ├── server.js                 # app Express (helmet, CORS); só escuta a porta se executado direto
+│   ├── server.js                 # app Express (helmet, CORS, tratador global de erros); só escuta a porta se executado direto
+│   ├── config.js                 # recusa iniciar sem JWT_SECRET forte
 │   ├── db.js                     # SQLite, migrações idempotentes e views
 │   ├── seed.js, embeddings.js, Dockerfile
-│   ├── middleware/               # auth.js (JWT + perfil), limiteLogin.js
+│   ├── middleware/               # auth.js (JWT, perfil, exigirAdmin), erros.js, limiteLogin.js, limiteTaxa.js
 │   ├── routes/                   # auth, orgaos, achados, dashboard, ia
-│   ├── services/                 # ia.js, padroes.js, auditoria.js, semelhantes.js
+│   ├── services/                 # ia.js, padroes.js, filtroIA.js, auditoria.js, semelhantes.js, validacao.js, dominio.js, tempo.js
 │   ├── memento/achado.js         # padrão Memento
 │   └── tests/                    # node:test + servidor Ollama falso
 └── frontend/
@@ -389,23 +390,28 @@ respondem 404 em JSON. O servidor **não inicia sem `JWT_SECRET`**.
 
 ## 12. Segurança
 
-- Senhas com **bcrypt** (custo 10); o seed também usa bcrypt.
-- **helmet** (cabeçalhos HTTP), **CORS** restrito a `CORS_ORIGIN`.
-- **Limites de taxa (429 com mensagem clara e cabeçalho `Retry-After`)**: login por **IP + e-mail** (5 falhas em 15 min; um e-mail bloqueado não afeta os outros) com teto por IP; cadastro por IP (10/hora);
+- **Segredo JWT obrigatório:** o servidor **não inicia** sem `JWT_SECRET`, e recusa valores de exemplo (os publicados em versões antigas, qualquer valor com "troque") e segredos com menos de 32 caracteres. O `docker-compose.yml` exige a variável (sem padrão).
+- **Cadastro apenas com código de convite** (`CODIGO_CONVITE`, comparação em tempo constante); sem o código configurado, o cadastro fica desativado. O admin criado por `npm run seed` e os demais usuários fazem login normalmente.
+- **Permissões:** achados — só o criador ou admin editam/excluem/desfazem; órgãos — só admin cria/edita/exclui (o frontend esconde os botões; o servidor responde 403).
+- **Validação central de entrada** (tipos, tamanhos, IDs inteiros positivos, enums) e **tratador global de erros**: respostas sempre em JSON, 400 para entrada inválida e, para erros internos, apenas "Erro interno do servidor." — **sem stack trace nem caminhos de arquivo**.
+- Senhas com **bcrypt** (custo 10, **assíncrono**), limitadas a 72 bytes; o seed também usa bcrypt.
+- **helmet** (cabeçalhos HTTP) e **CORS** restrito a `CORS_ORIGIN`.
+- **Limites de taxa (429 com mensagem clara e cabeçalho `Retry-After`)**: login por **IP + e-mail** (5 falhas em 15 min; um e-mail bloqueado não afeta os outros) com teto por IP; cadastro por IP (10/hora, incluindo convites errados);
   IA por usuário (10 gerações/min e 30 consultas de semelhantes/min). Os contadores ficam em memória e expiram sozinhos.
-- Hash de senha com **bcrypt assíncrono** (não bloqueia o servidor sob muitos cadastros/logins).
-- Consultas SQL parametrizadas; o frontend escapa texto dinâmico antes de inserir no HTML.
+- **IA:** saída da recomendação filtrada (sem lei/artigo/decreto/números inventados), texto do usuário delimitado como dado nos prompts e sugestão sempre confirmada por uma pessoa (seção 5).
+- Consultas SQL parametrizadas; o frontend escapa texto dinâmico antes de inserir no HTML (verificado inclusive para a saída da IA).
 
 ## 13. Limitações conhecidas
 
-- A IA (modelo 3B) **pode errar e pode ser influenciada por instruções escondidas no texto do achado** (*prompt injection*): a delimitação do texto e os filtros reduzem o risco, mas a severidade sugerida ainda pode ser manipulada — por isso é só uma sugestão que o auditor confirma. Sempre revisar. A validação checa os números citados, não o sentido do texto. O modelo tende a repetir os fatos quase literalmente.
-- A similaridade por embeddings tem "ruído de fundo": com o limiar padrão (0,80) ainda podem aparecer achados só vagamente relacionados; ajuste `SEMELHANTES_LIMIAR`. A busca compara com todos os vetores em JavaScript (adequado para centenas/milhares de achados, não para milhões).
-- A severidade sugerida é um apoio: o modelo 3B tende a classificar de forma conservadora e pode divergir do julgamento do auditor.
-- O limite de tentativas de login fica **em memória**: reinicia com o servidor e não é compartilhado entre instâncias.
-- O token JWT fica no `localStorage` do navegador e não há *refresh token*; a sessão expira em 2 h.
-- Dois perfis apenas (admin/auditor); não há gestão de usuários pela interface.
-- A auditoria cobre apenas achados (não órgãos nem usuários); achados criados pelo seed não possuem registros de criação.
-- Não há testes automatizados de interface (E2E); as telas foram verificadas manualmente. O relatório depende de a análise de padrões ter sido gerada na mesma sessão do navegador.
-- SQLite em arquivo único (uma instância); `node:sqlite` ainda é marcado como experimental pelo Node.
-- `JWT_SECRET` de exemplo deve ser trocado fora do ambiente acadêmico; não há HTTPS embutido (use um proxy reverso em produção).
-- Abrir os HTML direto do disco (`file://`) não funciona mais por causa do CORS restrito: sirva a pasta `frontend/`.
+- A IA (modelo 3B) **pode errar e pode ser influenciada por instruções escondidas no texto do achado** (*prompt injection*): a delimitação do texto e os filtros reduzem o risco, mas a severidade sugerida ainda pode ser manipulada — por isso é só uma sugestão que o auditor confirma. Sempre revisar. A validação da análise de padrões é lexical (números, citações, vocabulário), não semântica; o modelo tende a repetir os fatos quase literalmente.
+- A similaridade por embeddings tem "ruído de fundo": com o limiar padrão (0,80) ainda podem aparecer achados só vagamente relacionados; ajuste `SEMELHANTES_LIMIAR`. A busca compara com todos os vetores em JavaScript (adequado para até alguns milhares de achados).
+- Os limites de taxa ficam **em memória**: reiniciam com o servidor e não são compartilhados entre instâncias; atrás de um proxy reverso é preciso configurar `trust proxy` (senão todos os usuários aparecem com o IP do proxy).
+- O token JWT fica no `localStorage` e não há *refresh token* nem revogação no "Sair": a sessão expira em 2 h.
+- O cadastro por convite é um código único compartilhado; não há aprovação individual nem gestão de usuários pela interface. Qualquer usuário autenticado **lê** todos os achados e a auditoria.
+- Dois perfis apenas (admin/auditor). A auditoria cobre apenas achados (não órgãos nem usuários); achados criados pelo seed não têm registro de criação.
+- Não há política de retenção nem exclusão/anonimização de usuários (direitos do titular — LGPD).
+- A trava de conflito de edição depende de o cliente enviar `versao` (o frontend envia); a API aceita `PUT` sem ela. O *desfazer* não tem *refazer*, e achados excluídos não podem ser restaurados.
+- Não há testes automatizados de interface (E2E); as telas foram verificadas manualmente (e com Playwright/Chromium nas auditorias). O relatório depende de a análise de padrões ter sido gerada na mesma sessão do navegador.
+- SQLite em arquivo único (uma instância); `node:sqlite` ainda é marcado como experimental pelo Node. Não há HTTPS embutido (use um proxy reverso em produção).
+- O frontend estático não define cabeçalhos de segurança (CSP/X-Frame-Options); configure-os no servidor web que o publicar.
+- Abrir os HTML direto do disco (`file://`) não funciona por causa do CORS restrito: sirva a pasta `frontend/`.

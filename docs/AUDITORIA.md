@@ -5,6 +5,7 @@
 > Todos os testes rodaram com **bancos temporários** (`aud.db`, `perf.db`, `vazio.db`, em pasta temporária) — o `saac.db` do usuário não foi aberto.
 > Ferramentas: `node:test` (90 testes do projeto), scripts Node de sondagem HTTP, **Chromium + playwright-core** (instalados fora do projeto; o Chromium já estava em cache),
 > Ollama real (`llama3.2:3b`, `nomic-embed-text`) e um Ollama falso controlável para falhas. Os scripts de sondagem ficam na pasta temporária da sessão (não no repositório).
+> **Atualização (10/11/2026):** os itens deste relatório foram tratados em 5 commits de correção; veja a **seção 11 — Estado após correções** no final do documento. O texto das seções 1 a 10 descreve o sistema **antes** das correções (commit `1ab7699`).
 
 ---
 
@@ -390,3 +391,56 @@ Ordenadas por custo‑benefício. **Máximo 5.**
 - Baterias: (1) validação/JWT/permissões — ≈ 140 requisições; (2) fluxos (exclusão, Memento, auditoria, concorrência, CSV) — 45 verificações; (3) IA real (injeção, paralelismo); (4) IA com falhas — 15 modos do Ollama falso; (5) desempenho e `EXPLAIN`; (6) navegador — 6 telas × 2 larguras, XSS, links, a11y, sessão, impressão (PDF), estados vazios, cadastro/login pela UI, duplo clique, 429; (7) cobertura e higiene do git.
 - Resultado dos testes do projeto durante a auditoria: **90/90**, CI do GitHub verde no commit auditado.
 - `git status` do repositório após a auditoria: apenas este arquivo (`docs/AUDITORIA.md`) não versionado.
+
+
+---
+
+## 11. Estado após correções
+
+Correções aplicadas sobre o commit auditado (`1ab7699`), um commit por tema, com testes a cada etapa. Resultado final: **149 testes passando** (antes: 90), **cobertura de linhas do backend 96,4 %** (antes: 91,2 %; `routes/orgaos.js` de 64,9 % para 93,9 %), CI do GitHub verde e verificação no navegador **19/19** (Chromium + Playwright em pasta temporária, banco temporário): login do admin do seed sem convite, cadastro com convite (sem código, código errado e código correto), criação de achado, **edição com conflito** (aviso, recarregar e salvar), **auditoria com horário de Fortaleza**, relatório (data e "Gerado em" em Fortaleza, PDF de impressão), permissões na tela e **nenhum erro de JavaScript**. Prints: `docs/prints/final-*.png`.
+
+### 11.1 Bugs
+
+| ID | Título | Estado | Como foi tratado |
+|----|--------|--------|------------------|
+| B-01 | Stack trace/caminhos em erros | **Corrigido** | `middleware/erros.js`: tratador global em JSON ("Erro interno do servidor."), 404 em JSON, JSON inválido → 400, corpo grande → 413 |
+| B-02 | 500 para tipos errados | **Corrigido** | `services/validacao.js`: tipos, enums, inteiros positivos e filtros; arrays/objetos → 400 |
+| B-03 | Sem limites de tamanho | **Corrigido** | Limites documentados (título 200, descrição 4.000, recomendação 2.000, nomes 120/150, e-mail 254, senha 72 bytes, busca 100) + `maxlength` nos formulários |
+| B-04 | Descrição só com espaços | **Corrigido** | Rejeitada (POST e PUT) |
+| B-05 | `orgao_id` por coerção | **Corrigido** | Só inteiro positivo (número ou texto numérico do formulário) |
+| B-06 | Caracteres de controle | **Corrigido** | Rejeitados (quebra de linha só em descrição/recomendação) |
+| B-07 | Atualização perdida | **Corrigido** (com ressalva) | Coluna `versao`; `PUT` com versão antiga → **409** com dados atuais; frontend avisa e oferece recarregar; 5 PUTs simultâneos → 1 sucesso e 4 conflitos. *Ressalva:* clientes de API que omitem `versao` não têm a proteção |
+| B-08 | Embeddings de excluídos / vetor antigo | **Corrigido** | O vetor só é gravado se o achado ainda existe **e** o texto não mudou (dois testes de corrida que falham sem a correção) |
+| B-09 | Horários em UTC | **Corrigido** | API continua em UTC; telas e coluna "Criado em" do CSV em **America/Fortaleza** |
+| B-10 | Órgão "imortal" | **Corrigido** | Órgão cujos achados estão todos excluídos é removido logicamente (`orgaos.excluido_em`) |
+| B-11 | `PUT` sem mudança gera snapshot | **Limitação conhecida** | Não fazia parte do escopo das correções |
+| B-12 | Erros não-JSON | **Corrigido** | 404/405 em JSON |
+| B-13 | Saída da recomendação sem validação | **Corrigido** | `services/filtroIA.js` (mesmo filtro da severidade): lei/artigo/decreto/inciso/portaria/resolução/§ ou números ausentes do achado → mensagem padrão (uso registrado como descartado); limite de 2.000 caracteres |
+| B-14 | Sem *fail-fast* de `JWT_SECRET` | **Corrigido** | `config.js`: o servidor não inicia sem segredo (nem com segredo de exemplo/curto fora de `NODE_ENV=test`) |
+
+### 11.2 Segurança e privacidade
+
+| ID | Título | Estado | Como foi tratado |
+|----|--------|--------|------------------|
+| S-1 | Segredo JWT público | **Corrigido** | Segredos de exemplo e valores com "troque" recusados; mínimo de 32 caracteres; `.env.example` sem segredo; `docker-compose.yml` exige `JWT_SECRET` (sem padrão), com instrução no README |
+| S-2 | Cadastro aberto + leitura global | **Parcial** | Cadastro **somente com código de convite** (`CODIGO_CONVITE`, comparação em tempo constante, limitado por IP). *Limitação conhecida:* o convite é um código único e qualquer usuário autenticado ainda **lê** todos os achados |
+| S-3 | bcrypt síncrono / cadastro sem limite | **Corrigido** | `bcrypt.hash/compare` assíncronos; limite de cadastro por IP (10/hora); sem corrida na criação do 1º admin e sem 500 em e-mail duplicado simultâneo |
+| S-4 | Prompt injection na severidade | **Mitigado — limitação residual** | Texto do usuário delimitado em `<achado>…</achado>` (tags removidas) com instrução de ignorar ordens; justificativa filtrada; sugestão sempre confirmada por pessoa. Um modelo 3B ainda pode ser influenciado |
+| S-5 | Órgãos sem controle de perfil | **Corrigido** | `POST/PUT/DELETE /orgaos` só admin (403); frontend esconde os botões |
+| S-6 | Bloqueio de login por IP | **Corrigido** (com ressalva) | Bloqueio por **IP + e-mail** (+ teto por IP contra tentar vários e-mails). *Ressalva:* atrás de proxy reverso é preciso `trust proxy` |
+| S-7 | IA sem limite de taxa | **Corrigido** | Por usuário: 10 gerações/min e 30 consultas de semelhantes/min (configuráveis); 429 claro no frontend |
+| S-8 | Token não revogável / `localStorage` | **Limitação conhecida** | Fora do escopo; sessão expira em 2 h |
+| S-9 | Enumeração de e-mails | **Mitigado** | O 409 só é revelado a quem tem um código de convite válido |
+| S-10 | bcrypt trunca em 72 bytes | **Corrigido** | Senhas acima de 72 bytes são recusadas com mensagem |
+| S-11 | Frontend sem CSP/X-Frame-Options | **Limitação conhecida** | Documentada no README |
+| S-12 | LGPD (direitos do titular, retenção) / senha mínima 6 | **Limitação conhecida** | Documentada no README |
+
+### 11.3 Suspeitas e itens da seção 5
+
+- Vetor de embedding desatualizado após edições rápidas — **corrigido** (B-08).
+- `Map` de `limiteLogin` sem purga — **corrigido** (limpeza periódica; limitadores novos também expiram sozinhos).
+- `achados.html?achado=ID` inexistente (sem feedback), modais sem ESC/foco, tabela no mobile, índices SQL, relatório com muitos achados — **não tratados** (melhorias opcionais da seção 5/8).
+
+### 11.4 Nota de prontidão revisada
+
+**9,0 / 10** (antes: 7,5). Todos os itens "corrigir hoje" do plano foram feitos e verificados por testes automatizados e no navegador; nenhum bug médio ou segurança alta/média confirmada permanece em aberto, exceto o que ficou como limitação documentada (leitura global por usuários autenticados, sessão/JWT, LGPD e prompt injection residual). Descontos restantes: nenhum teste automatizado de frontend (apenas as funções de data e a verificação com Playwright desta etapa), melhorias de UX/acessibilidade opcionais e o recurso de IA continuar dependendo de um modelo pequeno.
