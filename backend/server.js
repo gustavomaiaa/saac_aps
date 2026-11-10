@@ -1,6 +1,19 @@
 // server.js — ponto de entrada do backend SAAC
 // Sprint III: Autenticacao | Sprint IV: CRUD de Orgaos e Achados (relacionados)
 require('dotenv').config();
+const { validarConfiguracao } = require('./config');
+
+// Recusa iniciar com configuração insegura/incompleta (ex.: sem JWT_SECRET)
+try {
+  validarConfiguracao();
+} catch (erro) {
+  console.error(`
+❌ Configuração inválida:
+${erro.message}
+`);
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -9,6 +22,7 @@ const orgaosRoutes = require('./routes/orgaos');
 const achadosRoutes = require('./routes/achados');
 const dashboardRoutes = require('./routes/dashboard');
 const iaRoutes = require('./routes/ia');
+const { rotaNaoEncontrada, tratadorGlobal } = require('./middleware/erros');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,7 +40,7 @@ app.use(cors({
     return callback(null, false); // sem cabeçalhos CORS: o navegador bloqueia
   },
 }));
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/orgaos', orgaosRoutes);
@@ -37,6 +51,10 @@ app.use('/api/ia', iaRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', servico: 'SAAC API', versao: '1.1.0' });
 });
+
+// 404 em JSON e tratador global de erros (JSON genérico, sem stack trace nem caminhos)
+app.use(rotaNaoEncontrada);
+app.use(tratadorGlobal);
 
 // Só abre a porta quando executado diretamente (os testes importam o app sem listen)
 if (require.main === module) app.listen(PORT, () => {

@@ -5,54 +5,18 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
 const { limitarLogin, registrarFalha, registrarSucesso } = require('../middleware/limiteLogin');
+const { tratarErro } = require('../middleware/erros');
+const v = require('../services/validacao');
 
 const router = express.Router();
 
-const AREAS_VALIDAS = [
-  'Educação',
-  'Saúde',
-  'Obras',
-  'Finanças',
-  'Administração',
-  'Compliance',
-  'Outra',
-];
-
-function emailValido(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
 router.post('/cadastro', (req, res) => {
-  const { nome, email, senha, area } = req.body;
-
-  if (!nome || !email || !senha || !area) {
-    return res.status(400).json({
-      sucesso: false,
-      erro: 'Todos os campos são obrigatórios: nome, email, senha e área.',
-    });
-  }
-
-  if (nome.trim().length < 3) {
-    return res.status(400).json({ sucesso: false, erro: 'O nome deve ter pelo menos 3 caracteres.' });
-  }
-
-  if (!emailValido(email)) {
-    return res.status(400).json({ sucesso: false, erro: 'Email inválido.' });
-  }
-
-  if (senha.length < 6) {
-    return res.status(400).json({ sucesso: false, erro: 'A senha deve ter pelo menos 6 caracteres.' });
-  }
-
-  if (!AREAS_VALIDAS.includes(area)) {
-    return res.status(400).json({
-      sucesso: false,
-      erro: `Área inválida. Opções: ${AREAS_VALIDAS.join(', ')}.`,
-    });
-  }
-
   try {
-    const existente = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(email.toLowerCase());
+    const corpo = v.corpoJson(req);
+    v.exigir(corpo, ['nome', 'email', 'senha', 'area'], 'Todos os campos são obrigatórios: nome, email, senha e área.');
+    const { nome, email, senha, area } = v.validarCadastro(corpo);
+
+    const existente = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(email);
 
     if (existente) {
       return res.status(409).json({ sucesso: false, erro: 'Já existe um usuário cadastrado com este email.' });
@@ -65,12 +29,12 @@ router.post('/cadastro', (req, res) => {
 
     const resultado = db
       .prepare('INSERT INTO usuarios (nome, email, senha, area, perfil) VALUES (?, ?, ?, ?, ?)')
-      .run(nome.trim(), email.toLowerCase(), senhaHash, area, perfil);
+      .run(nome, email, senhaHash, area, perfil);
 
     const usuario = {
       id: Number(resultado.lastInsertRowid),
-      nome: nome.trim(),
-      email: email.toLowerCase(),
+      nome,
+      email,
       area,
       perfil,
     };
@@ -81,20 +45,20 @@ router.post('/cadastro', (req, res) => {
 
     return res.status(201).json({ sucesso: true, mensagem: 'Usuário cadastrado com sucesso!', token, usuario });
   } catch (erro) {
-    console.error('Erro ao cadastrar usuário:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao cadastrar usuário.' });
+    return tratarErro(res, erro, 'Erro ao cadastrar usuário', 'Erro interno ao cadastrar usuário.');
   }
 });
 
 router.post('/login', limitarLogin, (req, res) => {
-  const { email, senha } = req.body;
-
-  if (!email || !senha) {
-    return res.status(400).json({ sucesso: false, erro: 'Email e senha são obrigatórios.' });
-  }
-
   try {
-    const usuarioDb = db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email.toLowerCase());
+    const corpo = v.corpoJson(req);
+    if (typeof corpo.email !== 'string' || typeof corpo.senha !== 'string' || !corpo.email || !corpo.senha) {
+      return res.status(400).json({ sucesso: false, erro: 'Email e senha são obrigatórios.' });
+    }
+    const email = corpo.email.trim().toLowerCase();
+    const { senha } = corpo;
+
+    const usuarioDb = db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email);
 
     if (!usuarioDb) {
       registrarFalha(req);
@@ -117,8 +81,7 @@ router.post('/login', limitarLogin, (req, res) => {
 
     return res.status(200).json({ sucesso: true, mensagem: 'Login realizado com sucesso!', token, usuario });
   } catch (erro) {
-    console.error('Erro ao fazer login:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao fazer login.' });
+    return tratarErro(res, erro, 'Erro ao fazer login', 'Erro interno ao fazer login.');
   }
 });
 

@@ -16,11 +16,11 @@
     <h2 class="titulo">Entrar na sua conta</h2>
     <form id="form-login" novalidate>
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" placeholder="seuemail@orgao.gov.br" autocomplete="username" />
+      <input type="email" id="email" maxlength="254" name="email" placeholder="seuemail@orgao.gov.br" autocomplete="username" />
       <div class="campo-erro" id="erro-email"></div>
       <label for="senha">Senha</label>
       <div class="senha-wrapper">
-        <input type="password" id="senha" name="senha" placeholder="Sua senha" autocomplete="current-password" />
+        <input type="password" id="senha" maxlength="72" name="senha" placeholder="Sua senha" autocomplete="current-password" />
         <button type="button" class="toggle-senha" id="toggle-senha">Mostrar</button>
       </div>
       <div class="campo-erro" id="erro-senha"></div>

@@ -332,6 +332,25 @@ saac_aps/
 
 ## 11. Regras de negócio
 
+### Limites de entrada (validação central — `backend/services/validacao.js`)
+
+| Campo | Regra |
+|-------|-------|
+| Título do achado | texto de 5 a 200 caracteres, em uma linha |
+| Descrição | texto de 1 a 4.000 caracteres (não pode ser só espaços); aceita quebras de linha |
+| Recomendação | até 2.000 caracteres (opcional) |
+| Nome do usuário / do órgão | 3 a 120 / 3 a 150 caracteres |
+| E-mail | até 254 caracteres, formato válido |
+| Senha | 6 caracteres no mínimo e **72 bytes** no máximo (limite do bcrypt) |
+| Busca (`q`) | até 100 caracteres |
+| IDs e `orgao_id` | inteiros positivos (texto só com dígitos é aceito) |
+| `pagina` / `limite` | inteiros positivos; `limite` acima de 100 é limitado a 100 |
+| Corpo JSON | objeto de até 100 KB |
+
+Caracteres de controle (ex.: NUL) são rejeitados. Qualquer entrada inválida responde **400** em JSON com uma mensagem em português;
+erros inesperados respondem **500** com a mensagem genérica "Erro interno do servidor." (sem stack trace nem caminhos). Rotas inexistentes
+respondem 404 em JSON. O servidor **não inicia sem `JWT_SECRET`**.
+
 - Todo achado pertence a um órgão e registra quem o criou. Título com no mínimo 5 caracteres; recomendação com até 2000.
 - Severidades: Crítico, Alto, Médio, Baixo. Status: Em aberto, Em análise, Implementado, Rejeitado.
 - Órgão com achados (ativos ou excluídos logicamente) não pode ser excluído (`409`).

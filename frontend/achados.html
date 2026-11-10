@@ -28,7 +28,7 @@
     </div>
 
     <div class="filtros">
-      <div class="campo campo-busca"><label for="filtro-busca">Buscar</label><input type="search" id="filtro-busca" placeholder="Título ou descrição..." /></div>
+      <div class="campo campo-busca"><label for="filtro-busca">Buscar</label><input type="search" id="filtro-busca" maxlength="100" placeholder="Título ou descrição..." /></div>
       <div class="campo"><label for="filtro-orgao">Órgão</label><select id="filtro-orgao"><option value="">Todos</option></select></div>
       <div class="campo">
         <label for="filtro-severidade">Severidade</label>
@@ -72,10 +72,10 @@
       <form id="form-achado">
         <input type="hidden" id="achado-id" />
         <label class="campo-label" for="achado-titulo">Título</label>
-        <input type="text" id="achado-titulo" placeholder="Ex: Licitação sem documentação adequada" />
+        <input type="text" id="achado-titulo" maxlength="200" placeholder="Ex: Licitação sem documentação adequada" />
         <div class="campo-erro" id="erro-titulo"></div>
         <label class="campo-label" for="achado-descricao">Descrição</label>
-        <textarea id="achado-descricao" placeholder="Descreva o achado em detalhes..."></textarea>
+        <textarea id="achado-descricao" maxlength="4000" placeholder="Descreva o achado em detalhes..."></textarea>
         <div class="campo-erro" id="erro-descricao"></div>
         <div class="ia-box parecidos-box" id="parecidos-box" style="display:none;">
           <div class="parecidos-alerta" id="parecidos-alerta" style="display:none;">⚠️ Possível duplicidade: já existe um achado muito parecido com este.</div>
@@ -115,7 +115,7 @@
           <label class="campo-label" for="achado-recomendacao">Recomendação</label>
           <button type="button" class="btn btn-secundario btn-pequeno" id="btn-gerar-ia">Gerar com IA</button>
         </div>
-        <textarea id="achado-recomendacao" placeholder="Recomendação para tratar o achado (opcional)..."></textarea>
+        <textarea id="achado-recomendacao" maxlength="2000" placeholder="Recomendação para tratar o achado (opcional)..."></textarea>
         <div class="ia-box" id="ia-box" style="display:none;">
           <div class="ia-carregando" id="ia-carregando" style="display:none;">⏳ Gerando recomendação com a IA local... (pode levar alguns segundos)</div>
           <div class="ia-erro" id="ia-erro" style="display:none;"></div>

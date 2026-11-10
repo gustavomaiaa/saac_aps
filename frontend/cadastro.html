@@ -16,10 +16,10 @@
     <h2 class="titulo">Criar nova conta</h2>
     <form id="form-cadastro" novalidate>
       <label for="nome">Nome completo</label>
-      <input type="text" id="nome" name="nome" placeholder="Seu nome completo" autocomplete="name" />
+      <input type="text" id="nome" maxlength="120" name="nome" placeholder="Seu nome completo" autocomplete="name" />
       <div class="campo-erro" id="erro-nome"></div>
       <label for="email">Email</label>
-      <input type="email" id="email" name="email" placeholder="seuemail@orgao.gov.br" autocomplete="username" />
+      <input type="email" id="email" maxlength="254" name="email" placeholder="seuemail@orgao.gov.br" autocomplete="username" />
       <div class="campo-erro" id="erro-email"></div>
       <label for="area">Área de atuação</label>
       <select id="area" name="area">
@@ -35,7 +35,7 @@
       <div class="campo-erro" id="erro-area"></div>
       <label for="senha">Senha</label>
       <div class="senha-wrapper">
-        <input type="password" id="senha" name="senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+        <input type="password" id="senha" maxlength="72" name="senha" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
         <button type="button" class="toggle-senha" id="toggle-senha">Mostrar</button>
       </div>
       <div class="campo-erro" id="erro-senha"></div>

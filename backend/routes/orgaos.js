@@ -4,31 +4,22 @@
 const express = require('express');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
+const { tratarErro } = require('../middleware/erros');
+const v = require('../services/validacao');
 
 const router = express.Router();
 router.use(autenticarToken);
 
-const TIPOS_VALIDOS = ['Prefeitura', 'Secretaria', 'Autarquia', 'Câmara Municipal', 'Fundação'];
-function tipoValido(tipo) { return TIPOS_VALIDOS.includes(tipo); }
-
 router.post('/', (req, res) => {
-  const { nome, tipo } = req.body;
-  if (!nome || !tipo) {
-    return res.status(400).json({ sucesso: false, erro: 'Nome e tipo são obrigatórios.' });
-  }
-  if (nome.trim().length < 3) {
-    return res.status(400).json({ sucesso: false, erro: 'O nome deve ter pelo menos 3 caracteres.' });
-  }
-  if (!tipoValido(tipo)) {
-    return res.status(400).json({ sucesso: false, erro: `Tipo inválido. Opções: ${TIPOS_VALIDOS.join(', ')}.` });
-  }
   try {
-    const resultado = db.prepare('INSERT INTO orgaos (nome, tipo) VALUES (?, ?)').run(nome.trim(), tipo);
+    const corpo = v.corpoJson(req);
+    v.exigir(corpo, ['nome', 'tipo'], 'Nome e tipo são obrigatórios.');
+    const { nome, tipo } = v.validarOrgao(corpo);
+    const resultado = db.prepare('INSERT INTO orgaos (nome, tipo) VALUES (?, ?)').run(nome, tipo);
     const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ?').get(resultado.lastInsertRowid);
     return res.status(201).json({ sucesso: true, mensagem: 'Órgão cadastrado com sucesso!', orgao });
   } catch (erro) {
-    console.error('Erro ao criar órgão:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao cadastrar órgão.' });
+    return tratarErro(res, erro, 'Erro ao criar órgão', 'Erro interno ao cadastrar órgão.');
   }
 });
 
@@ -41,52 +32,45 @@ router.get('/', (req, res) => {
     ).all();
     return res.status(200).json({ sucesso: true, orgaos });
   } catch (erro) {
-    console.error('Erro ao listar órgãos:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao listar órgãos.' });
+    return tratarErro(res, erro, 'Erro ao listar órgãos', 'Erro interno ao listar órgãos.');
   }
 });
 
 router.get('/:id', (req, res) => {
   try {
-    const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ?').get(req.params.id);
+    const id = v.idParam(req.params.id);
+    const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ?').get(id);
     if (!orgao) return res.status(404).json({ sucesso: false, erro: 'Órgão não encontrado.' });
     return res.status(200).json({ sucesso: true, orgao });
   } catch (erro) {
-    console.error('Erro ao buscar órgão:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao buscar órgão.' });
+    return tratarErro(res, erro, 'Erro ao buscar órgão', 'Erro interno ao buscar órgão.');
   }
 });
 
 router.put('/:id', (req, res) => {
-  const { nome, tipo } = req.body;
-  if (!nome || !tipo) {
-    return res.status(400).json({ sucesso: false, erro: 'Nome e tipo são obrigatórios.' });
-  }
-  if (nome.trim().length < 3) {
-    return res.status(400).json({ sucesso: false, erro: 'O nome deve ter pelo menos 3 caracteres.' });
-  }
-  if (!tipoValido(tipo)) {
-    return res.status(400).json({ sucesso: false, erro: `Tipo inválido. Opções: ${TIPOS_VALIDOS.join(', ')}.` });
-  }
   try {
-    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(req.params.id);
+    const id = v.idParam(req.params.id);
+    const corpo = v.corpoJson(req);
+    v.exigir(corpo, ['nome', 'tipo'], 'Nome e tipo são obrigatórios.');
+    const { nome, tipo } = v.validarOrgao(corpo);
+    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Órgão não encontrado.' });
-    db.prepare('UPDATE orgaos SET nome = ?, tipo = ? WHERE id = ?').run(nome.trim(), tipo, req.params.id);
-    const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ?').get(req.params.id);
+    db.prepare('UPDATE orgaos SET nome = ?, tipo = ? WHERE id = ?').run(nome, tipo, id);
+    const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ?').get(id);
     return res.status(200).json({ sucesso: true, mensagem: 'Órgão atualizado com sucesso!', orgao });
   } catch (erro) {
-    console.error('Erro ao atualizar órgão:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao atualizar órgão.' });
+    return tratarErro(res, erro, 'Erro ao atualizar órgão', 'Erro interno ao atualizar órgão.');
   }
 });
 
 router.delete('/:id', (req, res) => {
   try {
-    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(req.params.id);
+    const id = v.idParam(req.params.id);
+    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Órgão não encontrado.' });
     const vinculados = db.prepare(
       'SELECT COUNT(*) AS total, SUM(CASE WHEN excluido_em IS NULL THEN 1 ELSE 0 END) AS ativos FROM achados WHERE orgao_id = ?'
-    ).get(req.params.id);
+    ).get(id);
     if (vinculados.ativos > 0) {
       return res.status(409).json({
         sucesso: false,
@@ -100,11 +84,10 @@ router.delete('/:id', (req, res) => {
         erro: 'Não é possível excluir: o órgão possui achados excluídos preservados para histórico.',
       });
     }
-    db.prepare('DELETE FROM orgaos WHERE id = ?').run(req.params.id);
+    db.prepare('DELETE FROM orgaos WHERE id = ?').run(id);
     return res.status(200).json({ sucesso: true, mensagem: 'Órgão excluído com sucesso!' });
   } catch (erro) {
-    console.error('Erro ao excluir órgão:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao excluir órgão.' });
+    return tratarErro(res, erro, 'Erro ao excluir órgão', 'Erro interno ao excluir órgão.');
   }
 });
 

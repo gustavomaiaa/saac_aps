@@ -5,14 +5,20 @@ const autenticarToken = require('../middleware/auth');
 const ia = require('../services/ia');
 const padroes = require('../services/padroes');
 const semelhantes = require('../services/semelhantes');
+const { ErroValidacao, asyncHandler } = require('../middleware/erros');
+const v = require('../services/validacao');
+const { SEVERIDADES } = require('../services/dominio');
 
 const router = express.Router();
 router.use(autenticarToken);
 
-const SEVERIDADES_VALIDAS = ['Crítico', 'Alto', 'Médio', 'Baixo'];
+const SEVERIDADES_VALIDAS = SEVERIDADES;
 
 // Responde erros de IA com o status HTTP correto (503/504/502); qualquer outro vira 500
 function responderErro(res, erro, contexto) {
+  if (erro instanceof ErroValidacao) {
+    return res.status(400).json({ sucesso: false, erro: erro.message });
+  }
   if (erro instanceof ia.ErroIA) {
     return res.status(erro.status).json({ sucesso: false, erro: erro.message });
   }
@@ -27,37 +33,34 @@ function registrarUso({ usuarioId, tipo, achadoId, modelo, tempoMs }) {
   return Number(r.lastInsertRowid);
 }
 
-router.get('/status', async (req, res) => {
+router.get('/status', asyncHandler(async (req, res) => {
   const estado = await ia.status();
   return res.status(200).json({ sucesso: true, ...estado });
-});
+}));
 
 // Recurso 1 — recomendação automática para um achado
-router.post('/recomendacao', async (req, res) => {
-  const { titulo, descricao, severidade, orgao_nome, orgao_tipo, achado_id } = req.body || {};
-  if (!titulo || !descricao || !severidade || !orgao_nome) {
-    return res.status(400).json({ sucesso: false, erro: 'Título, descrição, severidade e órgão (nome e tipo) são obrigatórios.' });
+router.post('/recomendacao', asyncHandler(async (req, res) => {
+  let base_utilizada;
+  let achado_id;
+  try {
+    const corpo = v.corpoJson(req);
+    v.exigir(corpo, ['titulo', 'descricao', 'severidade', 'orgao_nome'], 'Título, descrição, severidade e órgão (nome e tipo) são obrigatórios.');
+    // Exatamente os campos que serao enviados ao modelo
+    base_utilizada = {
+      titulo: v.texto(corpo.titulo, 'O título', { max: 200 }),
+      descricao: v.texto(corpo.descricao, 'A descrição', { max: 4000, multilinha: true }),
+      severidade: v.opcao(corpo.severidade, SEVERIDADES_VALIDAS, 'Severidade inválida'),
+      orgao_nome: v.texto(corpo.orgao_nome, 'O nome do órgão', { max: v.LIMITES.nomeOrgao.max }),
+      orgao_tipo: corpo.orgao_tipo ? v.texto(corpo.orgao_tipo, 'O tipo do órgão', { max: 50 }) : null,
+    };
+    achado_id = corpo.achado_id === undefined || corpo.achado_id === null ? null : v.inteiroPositivo(corpo.achado_id, 'achado_id');
+  } catch (erro) {
+    return responderErro(res, erro, 'recomendação');
   }
-  if (!SEVERIDADES_VALIDAS.includes(severidade)) {
-    return res.status(400).json({ sucesso: false, erro: `Severidade inválida. Opções: ${SEVERIDADES_VALIDAS.join(', ')}.` });
-  }
-  if (String(titulo).length > 200 || String(descricao).length > 4000) {
-    return res.status(400).json({ sucesso: false, erro: 'Texto muito longo para a IA (título até 200 e descrição até 4000 caracteres).' });
-  }
-
-  // Exatamente os campos que serao enviados ao modelo
-  const base_utilizada = {
-    titulo: String(titulo).trim(),
-    descricao: String(descricao).trim(),
-    severidade,
-    orgao_nome: String(orgao_nome).trim(),
-    orgao_tipo: orgao_tipo ? String(orgao_tipo).trim() : null,
-  };
 
   try {
     const r = await ia.gerar(ia.promptRecomendacao(base_utilizada));
-    const idAchado = Number.isInteger(Number(achado_id)) && Number(achado_id) > 0
-      && db.prepare('SELECT id FROM achados WHERE id = ?').get(Number(achado_id)) ? Number(achado_id) : null;
+    const idAchado = achado_id && db.prepare('SELECT id FROM achados WHERE id = ?').get(achado_id) ? achado_id : null;
     const usoId = registrarUso({ usuarioId: req.usuario.id, tipo: 'recomendacao', achadoId: idAchado, modelo: r.modelo, tempoMs: r.tempo_ms });
     return res.status(200).json({
       sucesso: true, recomendacao: r.texto, modelo: r.modelo, tempo_ms: r.tempo_ms, base_utilizada, uso_id: usoId,
@@ -65,7 +68,7 @@ router.post('/recomendacao', async (req, res) => {
   } catch (erro) {
     return responderErro(res, erro, 'recomendação');
   }
-});
+}));
 
 // --- Severidade sugerida ---
 
@@ -94,15 +97,18 @@ function interpretarSeveridade(texto, textoDoAchado) {
   return { severidade, justificativa };
 }
 
-router.post('/severidade', async (req, res) => {
-  const { titulo, descricao } = req.body || {};
-  if (!titulo || !descricao || typeof titulo !== 'string' || typeof descricao !== 'string') {
-    return res.status(400).json({ sucesso: false, erro: 'Título e descrição são obrigatórios.' });
+router.post('/severidade', asyncHandler(async (req, res) => {
+  let base_utilizada;
+  try {
+    const corpo = v.corpoJson(req);
+    v.exigir(corpo, ['titulo', 'descricao'], 'Título e descrição são obrigatórios.');
+    base_utilizada = {
+      titulo: v.texto(corpo.titulo, 'O título', { max: 200 }),
+      descricao: v.texto(corpo.descricao, 'A descrição', { max: 4000, multilinha: true }),
+    };
+  } catch (erro) {
+    return responderErro(res, erro, 'severidade sugerida');
   }
-  if (titulo.length > 200 || descricao.length > 4000) {
-    return res.status(400).json({ sucesso: false, erro: 'Texto muito longo para a IA (título até 200 e descrição até 4000 caracteres).' });
-  }
-  const base_utilizada = { titulo: titulo.trim(), descricao: descricao.trim() };
   try {
     const r = await ia.gerar(ia.promptSeveridade(base_utilizada.titulo, base_utilizada.descricao),
       { temperature: 0.2, num_predict: 200, json: true });
@@ -120,24 +126,22 @@ router.post('/severidade', async (req, res) => {
   } catch (erro) {
     return responderErro(res, erro, 'severidade sugerida');
   }
-});
+}));
 
 // --- Achados semelhantes (embeddings + cosseno) ---
-router.get('/semelhantes', async (req, res) => {
-  const { titulo, descricao, orgao_id, excluir_id } = req.query;
-  if (!titulo || !descricao) {
-    return res.status(400).json({ sucesso: false, erro: 'Título e descrição são obrigatórios.' });
-  }
-  if (String(titulo).length > 200 || String(descricao).length > 4000) {
-    return res.status(400).json({ sucesso: false, erro: 'Texto muito longo para a IA (título até 200 e descrição até 4000 caracteres).' });
-  }
+router.get('/semelhantes', asyncHandler(async (req, res) => {
   try {
-    const r = await semelhantes.buscarSemelhantes(titulo, descricao, { orgaoId: orgao_id, excluirId: excluir_id });
+    v.exigir(req.query, ['titulo', 'descricao'], 'Título e descrição são obrigatórios.');
+    const titulo = v.texto(req.query.titulo, 'O título', { max: 200 });
+    const descricao = v.texto(req.query.descricao, 'A descrição', { max: 4000, multilinha: true });
+    const orgaoId = req.query.orgao_id === undefined ? undefined : v.inteiroQuery(req.query.orgao_id, 'orgao_id');
+    const excluirId = req.query.excluir_id === undefined ? undefined : v.inteiroQuery(req.query.excluir_id, 'excluir_id');
+    const r = await semelhantes.buscarSemelhantes(titulo, descricao, { orgaoId, excluirId });
     return res.status(200).json({ sucesso: true, modelo: ia.modeloEmbedding(), ...r });
   } catch (erro) {
     return responderErro(res, erro, 'achados semelhantes');
   }
-});
+}));
 
 // Estatísticas calculadas por SQL (sem IA) — são elas que vão para o modelo
 function calcularEstatisticas() {
@@ -160,7 +164,7 @@ function calcularEstatisticas() {
 }
 
 // Recurso 2 — análise de padrões
-router.get('/padroes', async (req, res) => {
+router.get('/padroes', asyncHandler(async (req, res) => {
   try {
     const estatisticas = calcularEstatisticas();
     if (estatisticas.total_achados === 0) {
@@ -187,16 +191,17 @@ router.get('/padroes', async (req, res) => {
   } catch (erro) {
     return responderErro(res, erro, 'análise de padrões');
   }
-});
+}));
 
 // O frontend informa se o auditor aceitou ou descartou a sugestão
 router.post('/uso/:id/resultado', (req, res) => {
-  const { resultado } = req.body || {};
-  if (!['aceita', 'descartada'].includes(resultado)) {
-    return res.status(400).json({ sucesso: false, erro: "Resultado inválido. Opções: 'aceita' ou 'descartada'." });
-  }
   try {
-    const uso = db.prepare('SELECT id, usuario_id FROM ia_uso WHERE id = ?').get(req.params.id);
+    const id = v.idParam(req.params.id);
+    const { resultado } = v.corpoJson(req);
+    if (!['aceita', 'descartada'].includes(resultado)) {
+      return res.status(400).json({ sucesso: false, erro: "Resultado inválido. Opções: 'aceita' ou 'descartada'." });
+    }
+    const uso = db.prepare('SELECT id, usuario_id FROM ia_uso WHERE id = ?').get(id);
     if (!uso) return res.status(404).json({ sucesso: false, erro: 'Registro de uso da IA não encontrado.' });
     if (uso.usuario_id !== req.usuario.id) {
       return res.status(403).json({ sucesso: false, erro: 'Você só pode registrar o resultado de sugestões geradas por você.' });
@@ -204,8 +209,7 @@ router.post('/uso/:id/resultado', (req, res) => {
     db.prepare('UPDATE ia_uso SET resultado = ? WHERE id = ?').run(resultado, uso.id);
     return res.status(200).json({ sucesso: true, mensagem: 'Resultado registrado.' });
   } catch (erro) {
-    console.error('Erro ao registrar resultado da IA:', erro);
-    return res.status(500).json({ sucesso: false, erro: 'Erro interno ao registrar o resultado.' });
+    return responderErro(res, erro, 'registro do resultado da IA');
   }
 });
 
