@@ -5,6 +5,7 @@ const autenticarToken = require('../middleware/auth');
 const ia = require('../services/ia');
 const padroes = require('../services/padroes');
 const semelhantes = require('../services/semelhantes');
+const filtroIA = require('../services/filtroIA');
 const { ErroValidacao, asyncHandler } = require('../middleware/erros');
 const { limitarIAGeracao, limitarIASemelhantes } = require('../middleware/limiteTaxa');
 const v = require('../services/validacao');
@@ -62,9 +63,21 @@ router.post('/recomendacao', limitarIAGeracao, asyncHandler(async (req, res) => 
   try {
     const r = await ia.gerar(ia.promptRecomendacao(base_utilizada));
     const idAchado = achado_id && db.prepare('SELECT id FROM achados WHERE id = ?').get(achado_id) ? achado_id : null;
+    // Mesmo filtro da severidade: sem lei/artigo/decreto e sem números que o achado não contenha (senão, mensagem padrão)
+    const textoBase = [base_utilizada.titulo, base_utilizada.descricao, base_utilizada.orgao_nome, base_utilizada.orgao_tipo || ''].join(' ');
+    let recomendacao = r.texto;
+    let substituida = false;
+    let truncada = false;
+    if (filtroIA.avaliar(recomendacao, textoBase).invalido) {
+      recomendacao = filtroIA.MSG_RECOMENDACAO_OMITIDA;
+      substituida = true;
+    } else {
+      ({ texto: recomendacao, truncada } = filtroIA.limitarTamanho(recomendacao, v.LIMITES.recomendacao.max));
+    }
     const usoId = registrarUso({ usuarioId: req.usuario.id, tipo: 'recomendacao', achadoId: idAchado, modelo: r.modelo, tempoMs: r.tempo_ms });
+    if (substituida) db.prepare("UPDATE ia_uso SET resultado = 'descartada' WHERE id = ?").run(usoId); // nada utilizável foi oferecido
     return res.status(200).json({
-      sucesso: true, recomendacao: r.texto, modelo: r.modelo, tempo_ms: r.tempo_ms, base_utilizada, uso_id: usoId,
+      sucesso: true, recomendacao, substituida, truncada, modelo: r.modelo, tempo_ms: r.tempo_ms, base_utilizada, uso_id: usoId,
     });
   } catch (erro) {
     return responderErro(res, erro, 'recomendação');
@@ -87,11 +100,8 @@ function interpretarSeveridade(texto, textoDoAchado) {
   // Justificativa: no máximo 2 frases, sem leis/artigos e sem números ausentes do texto do achado
   let justificativa = typeof obj.justificativa === 'string' ? obj.justificativa.trim() : '';
   justificativa = justificativa.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
-  const citaReferencia = /\b(leis?|artigos?|art\.|decretos?|incisos?|parágrafos?|normas?|resoluç(ão|ões)|portarias?)\b|§/i.test(justificativa);
-  const permitidos = new Set(padroes.numeros(textoDoAchado));
-  const numeroInventado = padroes.numeros(justificativa).some((n) => !permitidos.has(n));
-  if (citaReferencia || numeroInventado) {
-    justificativa = 'Justificativa omitida: o modelo citou referências ou números ausentes do texto do achado.';
+  if (filtroIA.avaliar(justificativa, textoDoAchado).invalido) {
+    justificativa = filtroIA.MSG_JUSTIFICATIVA_OMITIDA;
   } else if (!justificativa) {
     justificativa = 'O modelo não apresentou justificativa.';
   }

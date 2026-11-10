@@ -503,11 +503,19 @@ document.getElementById('btn-gerar-ia').addEventListener('click', async () => {
       erroIA.textContent = dados.erro || 'Não foi possível gerar a recomendação.';
       return;
     }
+    if (dados.substituida) {
+      // O servidor barrou a saída (lei/artigo/número inventado): nada é colocado no campo, só o aviso
+      erroIA.style.display = 'block';
+      erroIA.textContent = dados.recomendacao;
+      usoIaAtual = null;
+      return;
+    }
     const campo = document.getElementById('achado-recomendacao');
     textoAntesDaIA = campo.value;
     campo.value = dados.recomendacao;
     usoIaAtual = dados.uso_id;
-    document.getElementById('ia-meta').textContent = `Modelo: ${dados.modelo} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s`;
+    document.getElementById('ia-meta').textContent = `Modelo: ${dados.modelo} · Tempo de resposta: ${(dados.tempo_ms / 1000).toFixed(1)}s`
+      + (dados.truncada ? ' · texto reduzido ao limite de 2.000 caracteres' : '');
     document.getElementById('ia-base').innerHTML = Object.entries(dados.base_utilizada)
       .map(([k, v]) => `<li><b>${esc(k)}:</b> ${esc(v ?? '—')}</li>`).join('');
     document.getElementById('ia-resultado').style.display = 'block';

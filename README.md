@@ -149,7 +149,7 @@ Medidas alinhadas a princípios da **LGPD**:
 - **Minimização e finalidade (art. 6º):** só o necessário é enviado ao modelo, e apenas para apoiar o auditor.
 - **Segurança (art. 6º, VII):** os dados não saem do equipamento; senhas com bcrypt; JWT; cabeçalhos de segurança.
 - **Transparência:** toda resposta de IA mostra **modelo, tempo e base utilizada**; cada uso fica em `ia_uso` com o resultado (aceita/descartada).
-- **Supervisão humana:** a IA só sugere. O auditor revisa, edita e escolhe Aceitar ou Descartar; avisos explícitos na tela.
+- **Supervisão humana:** a IA é **apenas uma sugestão com confirmação humana**: nenhum resultado de IA é gravado sozinho. O auditor revisa, edita e escolhe Aceitar ou Descartar; avisos explícitos na tela.
 - **Rastreabilidade:** a trilha de auditoria registra quem alterou cada achado, e o histórico permite desfazer.
 - **Atenção do usuário:** se o texto de um achado contiver dados pessoais, ele será processado pelo modelo local (sem sair da máquina), mas deve ser evitado quando desnecessário.
 
@@ -179,7 +179,10 @@ descartada é substituída por "Priorizar o acompanhamento dos órgãos reincide
 (`linhas_substituidas`) e informadas no dashboard.
 No dashboard, os "Fatos calculados" ficam recolhidos e a "Interpretação da IA" aparece em destaque. A validação garante a *ligação com os fatos*, não a
 *correção do raciocínio*: o texto interpretativo do modelo pode conter generalizações sem base e deve ser revisado.
-A recomendação proíbe citar leis, artigos e números que não estejam no achado. Se o Ollama estiver desligado, o restante do sistema continua
+**Recomendação validada no servidor:** a saída passa pelo mesmo filtro da justificativa da severidade (`services/filtroIA.js`): se citar **lei, artigo, decreto, inciso, portaria, resolução ou §**, ou
+**números que não constem do achado** (valores, prazos, percentuais), ela é **substituída** por uma mensagem padrão ("Recomendação omitida: …") e registrada como descartada; textos acima de 2.000 caracteres são reduzidos.
+**Texto do usuário como dado:** nos prompts de severidade e recomendação, o texto digitado (título, descrição, nome do órgão) vai entre `<achado>…</achado>` (tags digitadas pelo usuário são removidas) com a instrução de **ignorar ordens contidas nele**
+(defesa em camadas contra *prompt injection*; não é garantia absoluta — ver limitações). Se o Ollama estiver desligado, o restante do sistema continua
 funcionando e a IA informa "IA local indisponível. Verifique se o Ollama está em execução."
 
 ## 6. Rastreabilidade: requisito → tela/endpoint → teste
@@ -393,7 +396,7 @@ respondem 404 em JSON. O servidor **não inicia sem `JWT_SECRET`**.
 
 ## 13. Limitações conhecidas
 
-- A IA (modelo 3B) **pode errar**; sempre revisar. A validação checa os números citados, não o sentido do texto. O modelo tende a repetir os fatos quase literalmente.
+- A IA (modelo 3B) **pode errar e pode ser influenciada por instruções escondidas no texto do achado** (*prompt injection*): a delimitação do texto e os filtros reduzem o risco, mas a severidade sugerida ainda pode ser manipulada — por isso é só uma sugestão que o auditor confirma. Sempre revisar. A validação checa os números citados, não o sentido do texto. O modelo tende a repetir os fatos quase literalmente.
 - A similaridade por embeddings tem "ruído de fundo": com o limiar padrão (0,80) ainda podem aparecer achados só vagamente relacionados; ajuste `SEMELHANTES_LIMIAR`. A busca compara com todos os vetores em JavaScript (adequado para centenas/milhares de achados, não para milhões).
 - A severidade sugerida é um apoio: o modelo 3B tende a classificar de forma conservadora e pode divergir do julgamento do auditor.
 - O limite de tentativas de login fica **em memória**: reinicia com o servidor e não é compartilhado entre instâncias.
