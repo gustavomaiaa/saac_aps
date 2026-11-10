@@ -1,31 +1,51 @@
-// middleware/limiteLogin.js — limite de tentativas de login por IP (em memória, sem dependência extra).
-// Conta apenas tentativas FALHAS: após LOGIN_MAX_TENTATIVAS (padrão 5) falhas dentro da janela
-// LOGIN_JANELA_MS (padrão 15 min), o IP recebe 429 até a janela expirar. Um login correto zera o contador.
+// middleware/limiteLogin.js — bloqueio de login por IP + e-mail (em memória, sem dependência extra).
+// Conta apenas tentativas FALHAS:
+//  - por IP + e-mail: após LOGIN_MAX_TENTATIVAS (padrão 5) falhas na janela LOGIN_JANELA_MS (padrão 15 min), aquele
+//    e-mail deixa de ser aceito a partir daquele IP (429). Outros e-mails e outros IPs não são afetados.
+//  - por IP (proteção contra tentar muitos e-mails): LOGIN_MAX_TENTATIVAS_IP (padrão 4 × o limite acima).
+// Um login correto zera o contador daquele IP + e-mail. Entradas expiradas são removidas periodicamente.
+const { numeroEnv } = require('./limiteTaxa');
 
-const tentativas = new Map(); // ip -> { falhas, inicio }
+const porIpEmail = new Map(); // `${ip}|${email}` -> { falhas, inicio }
+const porIp = new Map();      // ip -> { falhas, inicio }
 
-function maximo() { return Number(process.env.LOGIN_MAX_TENTATIVAS) || 5; }
-function janela() { return Number(process.env.LOGIN_JANELA_MS) || 15 * 60 * 1000; }
+const maximo = () => numeroEnv('LOGIN_MAX_TENTATIVAS', 5);
+const maximoIp = () => numeroEnv('LOGIN_MAX_TENTATIVAS_IP', maximo() * 4);
+const janela = () => numeroEnv('LOGIN_JANELA_MS', 15 * 60 * 1000);
 
-function registroAtual(ip) {
-  const r = tentativas.get(ip);
+const limpeza = setInterval(() => {
+  const agora = Date.now();
+  for (const mapa of [porIpEmail, porIp]) for (const [k, r] of mapa) if (agora - r.inicio >= janela()) mapa.delete(k);
+}, 60 * 1000);
+limpeza.unref();
+
+function emailDaRequisicao(req) {
+  const e = req.body && typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  return e.slice(0, 254);
+}
+const chaveIpEmail = (req) => `${req.ip}|${emailDaRequisicao(req)}`;
+
+function registroAtual(mapa, chave) {
+  const r = mapa.get(chave);
   if (r && Date.now() - r.inicio >= janela()) {
-    tentativas.delete(ip);
+    mapa.delete(chave);
     return null;
   }
   return r || null;
 }
 
-// Middleware: bloqueia com 429 quando o IP excedeu as falhas
+// Middleware: bloqueia com 429 quando o IP+e-mail (ou o IP) excedeu as falhas
 function limitarLogin(req, res, next) {
-  const r = registroAtual(req.ip);
-  if (r && r.falhas >= maximo()) {
-    const segundos = Math.max(1, Math.ceil((r.inicio + janela() - Date.now()) / 1000));
-    const minutos = Math.ceil(segundos / 60);
+  const a = registroAtual(porIpEmail, chaveIpEmail(req));
+  const b = registroAtual(porIp, req.ip);
+  const bloqueado = [a && a.falhas >= maximo() ? a : null, b && b.falhas >= maximoIp() ? b : null].filter(Boolean);
+  if (bloqueado.length) {
+    const fim = Math.max(...bloqueado.map((r) => r.inicio + janela()));
+    const segundos = Math.max(1, Math.ceil((fim - Date.now()) / 1000));
     res.setHeader('Retry-After', String(segundos));
     return res.status(429).json({
       sucesso: false,
-      erro: `Muitas tentativas de login. Aguarde ${minutos} minuto(s) e tente novamente.`,
+      erro: `Muitas tentativas de login. Aguarde ${Math.ceil(segundos / 60)} minuto(s) e tente novamente.`,
       retry_after_s: segundos,
     });
   }
@@ -33,13 +53,15 @@ function limitarLogin(req, res, next) {
 }
 
 function registrarFalha(req) {
-  const r = registroAtual(req.ip) || { falhas: 0, inicio: Date.now() };
-  r.falhas += 1;
-  tentativas.set(req.ip, r);
+  for (const [mapa, chave] of [[porIpEmail, chaveIpEmail(req)], [porIp, req.ip]]) {
+    const r = registroAtual(mapa, chave) || { falhas: 0, inicio: Date.now() };
+    r.falhas += 1;
+    mapa.set(chave, r);
+  }
 }
 
 function registrarSucesso(req) {
-  tentativas.delete(req.ip);
+  porIpEmail.delete(chaveIpEmail(req));
 }
 
-module.exports = { limitarLogin, registrarFalha, registrarSucesso };
+module.exports = { limitarLogin, registrarFalha, registrarSucesso, _mapas: { porIpEmail, porIp } };

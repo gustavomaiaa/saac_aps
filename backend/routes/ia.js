@@ -6,6 +6,7 @@ const ia = require('../services/ia');
 const padroes = require('../services/padroes');
 const semelhantes = require('../services/semelhantes');
 const { ErroValidacao, asyncHandler } = require('../middleware/erros');
+const { limitarIAGeracao, limitarIASemelhantes } = require('../middleware/limiteTaxa');
 const v = require('../services/validacao');
 const { SEVERIDADES } = require('../services/dominio');
 
@@ -39,7 +40,7 @@ router.get('/status', asyncHandler(async (req, res) => {
 }));
 
 // Recurso 1 — recomendação automática para um achado
-router.post('/recomendacao', asyncHandler(async (req, res) => {
+router.post('/recomendacao', limitarIAGeracao, asyncHandler(async (req, res) => {
   let base_utilizada;
   let achado_id;
   try {
@@ -97,7 +98,7 @@ function interpretarSeveridade(texto, textoDoAchado) {
   return { severidade, justificativa };
 }
 
-router.post('/severidade', asyncHandler(async (req, res) => {
+router.post('/severidade', limitarIAGeracao, asyncHandler(async (req, res) => {
   let base_utilizada;
   try {
     const corpo = v.corpoJson(req);
@@ -129,7 +130,7 @@ router.post('/severidade', asyncHandler(async (req, res) => {
 }));
 
 // --- Achados semelhantes (embeddings + cosseno) ---
-router.get('/semelhantes', asyncHandler(async (req, res) => {
+router.get('/semelhantes', limitarIASemelhantes, asyncHandler(async (req, res) => {
   try {
     v.exigir(req.query, ['titulo', 'descricao'], 'Título e descrição são obrigatórios.');
     const titulo = v.texto(req.query.titulo, 'O título', { max: 200 });
@@ -164,7 +165,7 @@ function calcularEstatisticas() {
 }
 
 // Recurso 2 — análise de padrões
-router.get('/padroes', asyncHandler(async (req, res) => {
+router.get('/padroes', limitarIAGeracao, asyncHandler(async (req, res) => {
   try {
     const estatisticas = calcularEstatisticas();
     if (estatisticas.total_achados === 0) {

@@ -326,8 +326,14 @@ async function buscarParecidos() {
   try {
     const params = new URLSearchParams({ titulo, descricao });
     if (orgaoId) params.set('orgao_id', orgaoId);
-    const { ok, dados } = await api(`/ia/semelhantes?${params.toString()}`);
+    const { ok, status, dados } = await api(`/ia/semelhantes?${params.toString()}`);
     if (minhaVez !== sequenciaParecidos) return; // resposta antiga
+    if (status === 429) { // limite de consultas atingido: avisa com clareza (o formulário continua funcionando)
+      document.getElementById('parecidos-alerta').style.display = 'none';
+      document.getElementById('parecidos-lista').innerHTML = `<li>${esc(dados.erro || 'Limite de consultas atingido. Tente novamente em instantes.')}</li>`;
+      document.getElementById('parecidos-box').style.display = 'block';
+      return;
+    }
     if (!ok || !dados.semelhantes || dados.semelhantes.length === 0) {
       document.getElementById('parecidos-box').style.display = 'none';
       return;

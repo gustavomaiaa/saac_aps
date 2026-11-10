@@ -4,6 +4,10 @@ process.env.SAAC_DB_PATH = ':memory:';
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'segredo_de_teste';
 process.env.CODIGO_CONVITE = 'convite-de-teste';
+// Limites de taxa folgados por padrão nos testes (os testes de limite os reduzem explicitamente)
+process.env.CADASTRO_LIMITE_POR_HORA = '100000';
+process.env.IA_LIMITE_POR_MINUTO = '100000';
+process.env.IA_LIMITE_SEMELHANTES_POR_MINUTO = '100000';
 process.env.OLLAMA_TIMEOUT_MS = process.env.OLLAMA_TIMEOUT_MS || '2000';
 // Nunca falar com o Ollama real nos testes: por padrão aponta para uma porta sem ninguém escutando
 process.env.OLLAMA_URL = 'http://127.0.0.1:1';

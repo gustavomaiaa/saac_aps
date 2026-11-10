@@ -5,7 +5,8 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const autenticarToken = require('../middleware/auth');
 const { limitarLogin, registrarFalha, registrarSucesso } = require('../middleware/limiteLogin');
-const { tratarErro } = require('../middleware/erros');
+const { limitarCadastro } = require('../middleware/limiteTaxa');
+const { tratarErro, asyncHandler } = require('../middleware/erros');
 const v = require('../services/validacao');
 const crypto = require('crypto');
 
@@ -16,9 +17,12 @@ function conviteConfere(informado) {
   return crypto.timingSafeEqual(hash(informado), hash(String(esperado).trim()));
 }
 
+// Custo do bcrypt (hash/compare ASSÍNCRONOS: não bloqueiam o event loop)
+const BCRYPT_CUSTO = 10;
+
 const router = express.Router();
 
-router.post('/cadastro', (req, res) => {
+router.post('/cadastro', limitarCadastro, asyncHandler(async (req, res) => {
   try {
     const corpo = v.corpoJson(req);
     v.exigir(corpo, ['nome', 'email', 'senha', 'area'], 'Todos os campos são obrigatórios: nome, email, senha e área.');
@@ -39,7 +43,8 @@ router.post('/cadastro', (req, res) => {
       return res.status(409).json({ sucesso: false, erro: 'Já existe um usuário cadastrado com este email.' });
     }
 
-    const senhaHash = bcrypt.hashSync(senha, 10);
+    // hash assíncrono; depois dele, a verificação do perfil e o INSERT rodam juntos (sem await entre eles)
+    const senhaHash = await bcrypt.hash(senha, BCRYPT_CUSTO);
 
     // O primeiro usuario cadastrado vira administrador; os demais sao auditores
     const perfil = db.prepare('SELECT COUNT(*) AS total FROM usuarios').get().total === 0 ? 'admin' : 'auditor';
@@ -62,11 +67,15 @@ router.post('/cadastro', (req, res) => {
 
     return res.status(201).json({ sucesso: true, mensagem: 'Usuário cadastrado com sucesso!', token, usuario });
   } catch (erro) {
+    // e-mail cadastrado por outra requisição simultânea (restrição UNIQUE)
+    if (/UNIQUE constraint failed: usuarios\.email/.test(String(erro && erro.message))) {
+      return res.status(409).json({ sucesso: false, erro: 'Já existe um usuário cadastrado com este email.' });
+    }
     return tratarErro(res, erro, 'Erro ao cadastrar usuário', 'Erro interno ao cadastrar usuário.');
   }
-});
+}));
 
-router.post('/login', limitarLogin, (req, res) => {
+router.post('/login', limitarLogin, asyncHandler(async (req, res) => {
   try {
     const corpo = v.corpoJson(req);
     if (typeof corpo.email !== 'string' || typeof corpo.senha !== 'string' || !corpo.email || !corpo.senha) {
@@ -82,7 +91,7 @@ router.post('/login', limitarLogin, (req, res) => {
       return res.status(401).json({ sucesso: false, erro: 'Email ou senha incorretos.' });
     }
 
-    const senhaCorreta = bcrypt.compareSync(senha, usuarioDb.senha);
+    const senhaCorreta = await bcrypt.compare(senha, usuarioDb.senha);
 
     if (!senhaCorreta) {
       registrarFalha(req);
@@ -100,7 +109,7 @@ router.post('/login', limitarLogin, (req, res) => {
   } catch (erro) {
     return tratarErro(res, erro, 'Erro ao fazer login', 'Erro interno ao fazer login.');
   }
-});
+}));
 
 router.get('/verify', autenticarToken, (req, res) => {
   return res.status(200).json({ sucesso: true, usuario: req.usuario });

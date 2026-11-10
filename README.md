@@ -274,7 +274,11 @@ docker compose down                       # use "down -v" para apagar também o 
 | `CODIGO_CONVITE` | — | Código exigido no cadastro de novos usuários (sem ele o cadastro fica desativado) |
 | `JWT_EXPIRES_IN` | `2h` | Validade do token |
 | `CORS_ORIGIN` | `http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080` | Origens do frontend permitidas (vírgula) |
-| `LOGIN_MAX_TENTATIVAS` / `LOGIN_JANELA_MS` | `5` / `900000` | Falhas de login por IP e janela (15 min) |
+| `LOGIN_MAX_TENTATIVAS` / `LOGIN_JANELA_MS` | `5` / `900000` | Falhas de login por **IP + e-mail** e janela (15 min) |
+| `LOGIN_MAX_TENTATIVAS_IP` | `20` (4 × o limite acima) | Falhas de login somadas de um mesmo IP (contra tentar muitos e-mails) |
+| `CADASTRO_LIMITE_POR_HORA` | `10` | Tentativas de cadastro por IP e por hora (inclui as com convite errado) |
+| `IA_LIMITE_POR_MINUTO` | `10` | Chamadas de IA que geram texto (recomendação, severidade, padrões) por **usuário** e por minuto |
+| `IA_LIMITE_SEMELHANTES_POR_MINUTO` | `30` | Consultas de achados parecidos por usuário e por minuto |
 | `OLLAMA_URL` | `http://localhost:11434` | Endereço do Ollama |
 | `OLLAMA_MODEL` | `llama3.2:3b` | Modelo |
 | `OLLAMA_TIMEOUT_MS` | `120000` | Tempo máximo de espera pela IA |
@@ -381,7 +385,10 @@ respondem 404 em JSON. O servidor **não inicia sem `JWT_SECRET`**.
 ## 12. Segurança
 
 - Senhas com **bcrypt** (custo 10); o seed também usa bcrypt.
-- **helmet** (cabeçalhos HTTP), **CORS** restrito a `CORS_ORIGIN`, **limite de 5 falhas de login por IP em 15 min** (`429` com mensagem clara na tela de login).
+- **helmet** (cabeçalhos HTTP), **CORS** restrito a `CORS_ORIGIN`.
+- **Limites de taxa (429 com mensagem clara e cabeçalho `Retry-After`)**: login por **IP + e-mail** (5 falhas em 15 min; um e-mail bloqueado não afeta os outros) com teto por IP; cadastro por IP (10/hora);
+  IA por usuário (10 gerações/min e 30 consultas de semelhantes/min). Os contadores ficam em memória e expiram sozinhos.
+- Hash de senha com **bcrypt assíncrono** (não bloqueia o servidor sob muitos cadastros/logins).
 - Consultas SQL parametrizadas; o frontend escapa texto dinâmico antes de inserir no HTML.
 
 ## 13. Limitações conhecidas
