@@ -69,6 +69,12 @@ function adicionarColunaSeNaoExistir(tabela, coluna, definicao) {
 // --- Sprint V: exclusao logica de achados ---
 adicionarColunaSeNaoExistir('achados', 'excluido_em', 'TEXT');
 
+// --- Controle de edição concorrente: `versao` aumenta a cada alteração do achado (PUT envia a versão que o usuário viu) ---
+adicionarColunaSeNaoExistir('achados', 'versao', 'INTEGER NOT NULL DEFAULT 1');
+
+// --- Órgão removido logicamente (quando todos os seus achados já estão excluídos) ---
+adicionarColunaSeNaoExistir('orgaos', 'excluido_em', 'TEXT');
+
 // --- Sprint V: perfil de acesso ('auditor' por padrao; o primeiro usuario e 'admin') ---
 adicionarColunaSeNaoExistir('usuarios', 'perfil', "TEXT NOT NULL DEFAULT 'auditor'");
 // Bancos antigos: se ainda nao ha nenhum admin, o primeiro usuario cadastrado vira admin
@@ -192,6 +198,7 @@ db.exec(`
          COALESCE(SUM(CASE WHEN a.severidade = 'Baixo' THEN 1 ELSE 0 END), 0) AS total_baixo
   FROM orgaos o
   LEFT JOIN achados a ON a.orgao_id = o.id AND a.excluido_em IS NULL
+  WHERE o.excluido_em IS NULL
   GROUP BY o.id;
 `);
 

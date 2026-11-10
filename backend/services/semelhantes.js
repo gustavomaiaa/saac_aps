@@ -42,7 +42,12 @@ function guardarEmbedding(achadoId, vetor, modelo) {
 async function atualizarEmbedding(achadoId) {
   const achado = db.prepare('SELECT titulo, descricao FROM achados WHERE id = ? AND excluido_em IS NULL').get(achadoId);
   if (!achado) return false;
-  const { vetor, modelo } = await ia.embedding(textoDoAchado(achado.titulo, achado.descricao));
+  const texto = textoDoAchado(achado.titulo, achado.descricao);
+  const { vetor, modelo } = await ia.embedding(texto);
+  // Enquanto o modelo respondia o achado pode ter sido excluído ou editado: nesse caso o vetor é obsoleto e NÃO é gravado
+  // (uma geração mais nova cuida do texto atual)
+  const atual = db.prepare('SELECT titulo, descricao FROM achados WHERE id = ? AND excluido_em IS NULL').get(achadoId);
+  if (!atual || textoDoAchado(atual.titulo, atual.descricao) !== texto) return false;
   guardarEmbedding(achadoId, vetor, modelo);
   return true;
 }

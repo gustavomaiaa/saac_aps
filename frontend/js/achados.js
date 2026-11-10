@@ -108,6 +108,7 @@ async function carregarAchados() {
 
 function limparFormulario() {
   document.getElementById('achado-id').value = '';
+  document.getElementById('achado-versao').value = '';
   document.getElementById('achado-titulo').value = '';
   document.getElementById('achado-descricao').value = '';
   document.getElementById('achado-orgao').value = '';
@@ -138,6 +139,7 @@ function abrirFormEdicao(id, achados) {
   if (!achado) return;
   formTitulo.textContent = 'Editar Achado';
   document.getElementById('achado-id').value = achado.id;
+  document.getElementById('achado-versao').value = achado.versao ?? '';
   document.getElementById('achado-titulo').value = achado.titulo;
   document.getElementById('achado-descricao').value = achado.descricao;
   document.getElementById('achado-orgao').value = achado.orgao_id;
@@ -198,10 +200,16 @@ formAchado.addEventListener('submit', async (e) => {
 
   try {
     const metodo = id ? 'PUT' : 'POST';
-    const { ok, dados } = await api(id ? `/achados/${id}` : '/achados', {
+    // Na edição envia a versão que o usuário viu: se outra pessoa salvou antes, o servidor responde 409
+    const versao = document.getElementById('achado-versao').value;
+    const { ok, status: httpStatus, dados } = await api(id ? `/achados/${id}` : '/achados', {
       method: metodo,
-      body: JSON.stringify({ titulo, descricao, orgao_id, severidade, status, recomendacao }),
+      body: JSON.stringify({ titulo, descricao, orgao_id, severidade, status, recomendacao, ...(id && versao ? { versao: Number(versao) } : {}) }),
     });
+    if (httpStatus === 409 && dados.versao_atual) {
+      mostrarConflito(dados);
+      return;
+    }
     if (!ok || !dados.sucesso) {
       alertaForm.className = 'alerta erro-geral';
       alertaForm.textContent = dados.erro || 'Não foi possível salvar o achado.';
@@ -355,6 +363,38 @@ function agendarParecidos() {
 ['achado-titulo', 'achado-descricao'].forEach((id) => document.getElementById(id).addEventListener('input', agendarParecidos));
 document.getElementById('achado-orgao').addEventListener('change', agendarParecidos);
 
+// --- Conflito de edição (409): avisa e oferece recarregar os dados atuais ---
+function preencherFormulario(a) {
+  document.getElementById('achado-versao').value = a.versao ?? '';
+  document.getElementById('achado-titulo').value = a.titulo;
+  document.getElementById('achado-descricao').value = a.descricao;
+  document.getElementById('achado-orgao').value = a.orgao_id;
+  document.getElementById('achado-severidade').value = a.severidade;
+  document.getElementById('achado-status').value = a.status;
+  document.getElementById('achado-recomendacao').value = a.recomendacao || '';
+}
+
+function mostrarConflito(dados) {
+  alertaForm.className = 'alerta erro-geral';
+  alertaForm.innerHTML = '';
+  const msg = document.createElement('div');
+  msg.textContent = dados.erro;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn-secundario btn-pequeno';
+  btn.style.marginTop = '8px';
+  btn.textContent = 'Recarregar dados atuais (descarta o que você digitou)';
+  btn.addEventListener('click', () => {
+    preencherFormulario(dados.achado);
+    alertaForm.className = 'alerta sucesso';
+    alertaForm.textContent = 'Dados atuais carregados. Refaça sua alteração e salve novamente.';
+    carregarHistorico(dados.achado.id);
+    carregarAchados();
+  });
+  alertaForm.appendChild(msg);
+  alertaForm.appendChild(btn);
+}
+
 // --- Exportação CSV (respeita os filtros atuais) ---
 document.getElementById('btn-exportar').addEventListener('click', async () => {
   const btn = document.getElementById('btn-exportar');
@@ -401,7 +441,7 @@ async function carregarAuditoria(id) {
     alvo.innerHTML = dados.auditoria.length ? dados.auditoria.map((a) => `
       <div class="item-auditoria">
         <b>${esc(a.usuario_nome)}</b> — ${esc(NOMES_ACAO[a.acao] || a.acao)}
-        <span class="data-auditoria">${esc(String(a.criado_em).slice(0, 16))}</span>
+        <span class="data-auditoria">${esc(formatarDataHora(a.criado_em))}</span>
         ${a.mudancas.length ? '<ul>' + a.mudancas.map((m) => `<li>${esc(NOMES_CAMPO[m.campo] || m.campo)}: <s>${esc(m.antes ?? '—')}</s> → ${esc(m.depois ?? '—')}</li>`).join('') + '</ul>' : ''}
       </div>`).join('') : '<div class="vazio">Nenhum registro de auditoria para este achado (anterior à auditoria).</div>';
   } catch (e) {
@@ -425,7 +465,7 @@ async function carregarHistorico(id) {
     const { ok, dados } = await api(`/achados/${id}/historico`);
     if (!ok) throw new Error(dados.erro);
     lista.innerHTML = dados.historico.length
-      ? dados.historico.map((i) => `<li>${esc(i.rotulo)} — ${esc(i.criado_em.replace('T', ' ').slice(0, 16))}</li>`).join('')
+      ? dados.historico.map((i) => `<li>${esc(i.rotulo)} — ${esc(formatarDataHora(i.criado_em))}</li>`).join('')
       : '<li class="vazio-hist">Nenhuma edição registrada.</li>';
     btnDesfazer.disabled = dados.historico.length === 0;
   } catch (e) {
@@ -449,6 +489,7 @@ document.getElementById('btn-desfazer').addEventListener('click', async () => {
     document.getElementById('achado-severidade').value = a.severidade;
     document.getElementById('achado-status').value = a.status;
     document.getElementById('achado-recomendacao').value = a.recomendacao || '';
+    document.getElementById('achado-versao').value = a.versao ?? ''; // o desfazer também muda a versão
     carregarAchados();
   } catch (e) {
     erroEl.textContent = 'Erro de conexão com o servidor.';

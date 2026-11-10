@@ -318,7 +318,7 @@ Todas as rotas, exceto cadastro/login/health, exigem `Authorization: Bearer <tok
 | GET | `/api/achados` | Listar: `severidade`, `status`, `orgao_id`, `q`, `pagina`, `limite` → `{ dados, total, pagina, paginas }` |
 | GET | `/api/achados/exportar.csv` | CSV (UTF-8 com BOM, `;`) com os mesmos filtros |
 | GET | `/api/achados/:id` | Detalhe |
-| PUT | `/api/achados/:id` | Editar (snapshot + auditoria) — criador ou admin |
+| PUT | `/api/achados/:id` | Editar (snapshot + auditoria) — criador ou admin. Aceita `versao` (409 se estiver desatualizada) |
 | DELETE | `/api/achados/:id` | Exclusão lógica — criador ou admin |
 | GET | `/api/achados/:id/historico` | Histórico de edições (`rotulo`, `criado_em`) |
 | POST | `/api/achados/:id/desfazer` | Desfaz a última edição (`409 "Nada a desfazer."`) |
@@ -379,11 +379,13 @@ respondem 404 em JSON. O servidor **não inicia sem `JWT_SECRET`**.
 
 - Todo achado pertence a um órgão e registra quem o criou. Título com no mínimo 5 caracteres; recomendação com até 2000.
 - Severidades: Crítico, Alto, Médio, Baixo. Status: Em aberto, Em análise, Implementado, Rejeitado.
-- Órgão com achados (ativos ou excluídos logicamente) não pode ser excluído (`409`).
-- Exclusão lógica: preenche `excluido_em`; o achado some de listagens, dashboard, CSV e IA, mas continua no banco.
+- Órgão com achados **ativos** não pode ser excluído (`409`). Se **todos** os seus achados já estão excluídos logicamente, o órgão é removido de forma lógica: some das listas e do dashboard, não aceita novos achados, e os achados excluídos e a auditoria continuam preservados. Órgão sem nenhum achado é apagado de vez.
+- Exclusão lógica: preenche `excluido_em`; o achado some de listagens, dashboard, CSV e IA, mas continua no banco; o vetor de embedding é apagado (e nunca é gravado depois da exclusão, mesmo que a geração ainda estivesse em andamento).
 - Só o criador ou um `admin` edita, exclui e desfaz (`403` caso contrário).
 - Cada edição grava um snapshot (Memento) e um registro de auditoria; criar, excluir e restaurar também são auditados.
 - Qualquer resposta `401` limpa o token e leva ao login.
+- **Edição concorrente:** cada achado tem uma `versao` (começa em 1 e sobe a cada alteração, inclusive *desfazer*). O formulário envia a versão que o usuário viu; se outra pessoa salvou antes, o `PUT` responde **409** ("alterado por outra pessoa…", com `versao_atual` e os dados atuais) e a tela oferece recarregar. Clientes de API que omitem `versao` continuam podendo editar (sem a proteção).
+- **Horários:** o banco e a API trabalham em **UTC**; as telas (auditoria, histórico, órgãos, relatório) e a coluna "Criado em" do CSV usam o fuso **America/Fortaleza** (UTC-3).
 
 ## 12. Segurança
 

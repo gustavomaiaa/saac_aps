@@ -1,6 +1,6 @@
 // relatorio.js — relatório imprimível: resumo do dashboard, análise de padrões (se já gerada) e tabela de achados
 document.getElementById('menu').innerHTML = montarMenu('relatorio.html');
-document.getElementById('rel-data').textContent = `Gerado em ${new Date().toLocaleString('pt-BR')}`;
+document.getElementById('rel-data').textContent = `Gerado em ${formatarDataHora(new Date())} (horário de Fortaleza)`;
 document.getElementById('btn-imprimir').addEventListener('click', () => window.print());
 
 function listaObj(obj) {
@@ -56,7 +56,7 @@ async function carregarRelatorio() {
       <tr>
         <td>${a.id}</td><td>${esc(a.titulo)}</td><td>${esc(a.orgao_nome)}</td>
         <td><span class="badge">${esc(a.severidade)}</span></td><td>${esc(a.status)}</td>
-        <td>${esc(a.recomendacao || '—')}</td><td>${esc(a.criado_por_nome)}</td><td>${esc(String(a.criado_em).split(' ')[0])}</td>
+        <td>${esc(a.recomendacao || '—')}</td><td>${esc(a.criado_por_nome)}</td><td>${esc(formatarData(a.criado_em))}</td>
       </tr>`).join('');
     document.getElementById('relatorio').style.display = 'block';
   } catch (erro) {

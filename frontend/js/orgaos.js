@@ -28,7 +28,7 @@ async function carregarOrgaos() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${esc(orgao.nome)}</td><td>${esc(orgao.tipo)}</td><td>${orgao.total_achados}</td>
-        <td>${orgao.criado_em.split(' ')[0]}</td>
+        <td>${esc(formatarData(orgao.criado_em))}</td>
         <td class="acoes">${ehAdmin() ? `
           <button class="btn btn-secundario btn-pequeno" data-editar="${orgao.id}">Editar</button>
           <button class="btn btn-perigo btn-pequeno" data-excluir="${orgao.id}" data-nome="${esc(orgao.nome)}">Excluir</button>` : '<span class="sem-permissao" title="Apenas administradores editam órgãos">Somente leitura</span>'}

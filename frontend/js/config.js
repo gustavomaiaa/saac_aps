@@ -54,3 +54,42 @@ function montarMenu(ativo) {
   const links = itens.map(([href, nome]) => `<a href="${href}"${ativo === href ? ' class="ativo"' : ''}>${nome}</a>`).join('');
   return `${links}<a href="#" onclick="logout(); return false;">Sair</a>`;
 }
+
+// --- Horários: o servidor guarda e devolve UTC; as telas exibem em America/Fortaleza (UTC-3) ---
+const FUSO_HORARIO = 'America/Fortaleza';
+const FORMATADOR_HORARIO = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: FUSO_HORARIO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+// Aceita '2026-11-10 16:34:18' (SQLite, UTC), ISO com ou sem 'Z' e objetos Date. Devolve Date ou null.
+function dataDeUtc(valor) {
+  if (valor instanceof Date) return Number.isNaN(valor.getTime()) ? null : valor;
+  if (valor === null || valor === undefined || valor === '') return null;
+  let texto = String(valor).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(texto)) texto = texto.replace(' ', 'T') + (texto.length === 16 ? ':00' : '') + 'Z';
+  else if (/^\d{4}-\d{2}-\d{2}T[\d:.]+$/.test(texto)) texto += 'Z';
+  const d = new Date(texto);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function partesHorario(d) {
+  const p = {};
+  FORMATADOR_HORARIO.formatToParts(d).forEach((x) => { p[x.type] = x.value; });
+  return p;
+}
+
+// 'dd/mm/aaaa hh:mm' em America/Fortaleza
+function formatarDataHora(valor) {
+  const d = dataDeUtc(valor);
+  if (!d) return '';
+  const p = partesHorario(d);
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
+}
+
+// 'dd/mm/aaaa' em America/Fortaleza
+function formatarData(valor) {
+  const d = dataDeUtc(valor);
+  if (!d) return '';
+  const p = partesHorario(d);
+  return `${p.day}/${p.month}/${p.year}`;
+}

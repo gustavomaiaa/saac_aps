@@ -28,7 +28,9 @@ function criar() {
         if (estado.modoEmbed === 'sem-modelo') return responder(404, { error: 'model "nomic-embed-text" not found, try pulling it first' });
         if (estado.modoEmbed === 'invalido') return responder(200, { embeddings: [] });
         const texto = String(json.input || '');
-        return responder(200, { model: json.model, embeddings: [(estado.embedFn || vetorPadrao)(texto)] });
+        const atraso = estado.atrasoEmbedFn ? estado.atrasoEmbedFn(texto) : 0;
+        const resposta = () => responder(200, { model: json.model, embeddings: [(estado.embedFn || vetorPadrao)(texto)] });
+        return atraso > 0 ? setTimeout(resposta, atraso) : resposta();
       }
       if (req.url === '/api/generate') {
         if (estado.modo === 'sem-modelo') return responder(404, { error: 'model "llama3.2:3b" not found, try pulling it first' });

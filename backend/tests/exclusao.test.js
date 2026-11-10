@@ -37,12 +37,29 @@ test('409 ao excluir órgão que tem achados ativos', async () => {
   assert.match(r.corpo.erro, /achado/);
 });
 
-test('409 também quando só restam achados excluídos logicamente (preservados)', async () => {
+test('órgão cujos achados estão TODOS excluídos pode ser removido (exclusão lógica; achados e auditoria preservados)', async () => {
   const o = await h.novoOrgao(token, 'Órgão só com excluído');
   const a = await h.novoAchado(token, o.id);
+  assert.strictEqual((await h.req('DELETE', `/orgaos/${o.id}`, { token })).status, 409, 'com achado ativo continua 409');
   await h.req('DELETE', `/achados/${a.id}`, { token });
   const r = await h.req('DELETE', `/orgaos/${o.id}`, { token });
-  assert.strictEqual(r.status, 409);
+  assert.strictEqual(r.status, 200);
+  assert.match(r.corpo.mensagem, /removido/);
+  // some das telas e do dashboard, mas o registro e o achado excluído continuam no banco
+  const lista = await h.req('GET', '/orgaos', { token });
+  assert.ok(!lista.corpo.orgaos.some((x) => x.id === o.id));
+  assert.strictEqual((await h.req('GET', `/orgaos/${o.id}`, { token })).status, 404);
+  assert.strictEqual((await h.req('PUT', `/orgaos/${o.id}`, { token, body: { nome: 'Revivido', tipo: 'Fundação' } })).status, 404);
+  assert.strictEqual((await h.req('DELETE', `/orgaos/${o.id}`, { token })).status, 404);
+  assert.ok(h.db.prepare('SELECT excluido_em FROM orgaos WHERE id = ?').get(o.id).excluido_em);
+  assert.ok(h.db.prepare('SELECT excluido_em FROM achados WHERE id = ?').get(a.id).excluido_em);
+  assert.strictEqual(h.db.prepare("SELECT COUNT(*) n FROM auditoria WHERE entidade_id = ? AND acao = 'excluir'").get(a.id).n, 1);
+  const dash = await h.req('GET', '/dashboard', { token });
+  assert.ok(!dash.corpo.top_orgaos.some((x) => x.orgao_id === o.id));
+  // não aceita achados novos nesse órgão
+  const novo = await h.req('POST', '/achados', { token, body: { titulo: 'Achado novo', descricao: 'Descricao', severidade: 'Alto', orgao_id: o.id } });
+  assert.strictEqual(novo.status, 400);
+  assert.match(novo.corpo.erro, /Órgão informado não existe/);
 });
 
 test('órgão sem achados pode ser excluído', async () => {

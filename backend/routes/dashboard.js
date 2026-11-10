@@ -23,7 +23,7 @@ function contagemPor(coluna, chaves) {
 router.get('/', (req, res) => {
   try {
     const { total } = db.prepare('SELECT COUNT(*) AS total FROM vw_achados_detalhados').get();
-    const totalOrgaos = db.prepare('SELECT COUNT(*) AS total FROM orgaos').get().total;
+    const totalOrgaos = db.prepare('SELECT COUNT(*) AS total FROM orgaos WHERE excluido_em IS NULL').get().total;
     const topOrgaos = db.prepare(
       `SELECT orgao_id, nome, tipo, total_achados
        FROM vw_resumo_orgaos WHERE total_achados > 0

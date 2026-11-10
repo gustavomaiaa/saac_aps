@@ -8,6 +8,7 @@ const { Achado, persistencia } = require('../memento/achado');
 const auditoria = require('../services/auditoria');
 const semelhantes = require('../services/semelhantes');
 const v = require('../services/validacao');
+const { paraFortaleza } = require('../services/tempo');
 
 const router = express.Router();
 router.use(autenticarToken);
@@ -27,7 +28,7 @@ function negarPermissao(res, acao) {
 function gravarEstado(id, estado) {
   db.prepare(
     `UPDATE achados SET titulo = ?, descricao = ?, severidade = ?, status = ?, orgao_id = ?, recomendacao = ?,
-       atualizado_em = datetime('now') WHERE id = ?`
+       atualizado_em = datetime('now'), versao = versao + 1 WHERE id = ?`
   ).run(estado.titulo, estado.descricao, estado.severidade, estado.status, estado.orgao_id, estado.recomendacao, id);
 }
 
@@ -37,7 +38,7 @@ router.post('/', (req, res) => {
     v.exigir(corpo, ['titulo', 'descricao', 'severidade', 'orgao_id'], 'Título, descrição, severidade e órgão são obrigatórios.');
     const dados = v.validarAchado(corpo, { statusObrigatorio: false });
 
-    const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(dados.orgao_id);
+    const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ? AND excluido_em IS NULL').get(dados.orgao_id);
     if (!orgao) return res.status(400).json({ sucesso: false, erro: 'Órgão informado não existe.' });
 
     const resultado = db.prepare(
@@ -109,7 +110,7 @@ router.get('/exportar.csv', (req, res) => {
 
     const cabecalho = ['ID', 'Título', 'Descrição', 'Severidade', 'Status', 'Recomendação', 'Órgão', 'Criado por', 'Criado em'];
     const linhas = achados.map((a) => [
-      a.id, a.titulo, a.descricao, a.severidade, a.status, a.recomendacao, a.orgao_nome, a.criado_por_nome, a.criado_em,
+      a.id, a.titulo, a.descricao, a.severidade, a.status, a.recomendacao, a.orgao_nome, a.criado_por_nome, paraFortaleza(a.criado_em),
     ].map(celulaCsv).join(';'));
     const csv = '﻿' + [cabecalho.join(';'), ...linhas].join('\r\n') + '\r\n';
 
@@ -143,7 +144,17 @@ router.put('/:id', (req, res) => {
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Achado não encontrado.' });
     if (!podeModificar(req, existente)) return negarPermissao(res, 'editar este achado');
 
-    const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(dados.orgao_id);
+    // Controle de edição concorrente: se o cliente informou a versão que viu e ela mudou, outra pessoa editou antes
+    if (dados.versao !== undefined && dados.versao !== existente.versao) {
+      return res.status(409).json({
+        sucesso: false,
+        erro: 'Este achado foi alterado por outra pessoa enquanto você o editava. Recarregue os dados atuais antes de salvar para não sobrescrever as alterações dela.',
+        versao_atual: existente.versao,
+        achado: db.prepare('SELECT * FROM vw_achados_detalhados WHERE id = ?').get(id),
+      });
+    }
+
+    const orgao = db.prepare('SELECT id FROM orgaos WHERE id = ? AND excluido_em IS NULL').get(dados.orgao_id);
     if (!orgao) return res.status(400).json({ sucesso: false, erro: 'Órgão informado não existe.' });
 
     // Memento: guarda um snapshot do estado atual ANTES de atualizar (permite desfazer)

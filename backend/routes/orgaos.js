@@ -30,6 +30,7 @@ router.get('/', (req, res) => {
     const orgaos = db.prepare(
       `SELECT o.*, COUNT(a.id) AS total_achados
        FROM orgaos o LEFT JOIN achados a ON a.orgao_id = o.id AND a.excluido_em IS NULL
+       WHERE o.excluido_em IS NULL
        GROUP BY o.id ORDER BY o.nome ASC`
     ).all();
     return res.status(200).json({ sucesso: true, orgaos });
@@ -41,7 +42,7 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   try {
     const id = v.idParam(req.params.id);
-    const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ?').get(id);
+    const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ? AND excluido_em IS NULL').get(id);
     if (!orgao) return res.status(404).json({ sucesso: false, erro: 'Órgão não encontrado.' });
     return res.status(200).json({ sucesso: true, orgao });
   } catch (erro) {
@@ -55,7 +56,7 @@ router.put('/:id', exigirAdmin, (req, res) => {
     const corpo = v.corpoJson(req);
     v.exigir(corpo, ['nome', 'tipo'], 'Nome e tipo são obrigatórios.');
     const { nome, tipo } = v.validarOrgao(corpo);
-    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(id);
+    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ? AND excluido_em IS NULL').get(id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Órgão não encontrado.' });
     db.prepare('UPDATE orgaos SET nome = ?, tipo = ? WHERE id = ?').run(nome, tipo, id);
     const orgao = db.prepare('SELECT * FROM orgaos WHERE id = ?').get(id);
@@ -68,7 +69,7 @@ router.put('/:id', exigirAdmin, (req, res) => {
 router.delete('/:id', exigirAdmin, (req, res) => {
   try {
     const id = v.idParam(req.params.id);
-    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ?').get(id);
+    const existente = db.prepare('SELECT id FROM orgaos WHERE id = ? AND excluido_em IS NULL').get(id);
     if (!existente) return res.status(404).json({ sucesso: false, erro: 'Órgão não encontrado.' });
     const vinculados = db.prepare(
       'SELECT COUNT(*) AS total, SUM(CASE WHEN excluido_em IS NULL THEN 1 ELSE 0 END) AS ativos FROM achados WHERE orgao_id = ?'
@@ -79,11 +80,13 @@ router.delete('/:id', exigirAdmin, (req, res) => {
         erro: `Não é possível excluir: existem ${vinculados.ativos} achado(s) vinculado(s) a este órgão.`,
       });
     }
-    // Achados excluídos logicamente continuam no banco (histórico) e ainda referenciam o órgão
+    // Todos os achados já foram excluídos logicamente: eles continuam no banco (histórico/auditoria) e ainda referenciam
+    // o órgão, então o órgão também é removido de forma lógica (some das listas e não aceita novos achados)
     if (vinculados.total > 0) {
-      return res.status(409).json({
-        sucesso: false,
-        erro: 'Não é possível excluir: o órgão possui achados excluídos preservados para histórico.',
+      db.prepare("UPDATE orgaos SET excluido_em = datetime('now') WHERE id = ?").run(id);
+      return res.status(200).json({
+        sucesso: true,
+        mensagem: 'Órgão removido. Os achados já excluídos continuam preservados no histórico.',
       });
     }
     db.prepare('DELETE FROM orgaos WHERE id = ?').run(id);
